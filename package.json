@@ -1,0 +1,35 @@
+{
+  "name": "claude-code-switcher",
+  "version": "1.0.0",
+  "description": "Claude Code环境变量快速切换工具",
+  "main": "src/index.js",
+  "bin": {
+    "cc": "./bin/cc.js"
+  },
+  "scripts": {
+    "start": "node bin/cc.js",
+    "dev": "nodemon bin/cc.js",
+    "test": "jest",
+    "build": "echo 'No build needed'",
+    "prepare": "echo 'Preparing package'"
+  },
+  "keywords": ["claude", "ai", "cli", "environment", "switcher", "windows"],
+  "author": "Developer",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^9.4.1",
+    "inquirer": "^8.2.6",
+    "fs-extra": "^11.1.1",
+    "chalk": "^4.1.2",
+    "cross-spawn": "^7.0.3",
+    "supports-color": "^9.4.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": ["win32", "darwin", "linux"]
+}
