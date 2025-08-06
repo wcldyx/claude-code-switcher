@@ -79,6 +79,64 @@ const validator = {
     const stars = '*'.repeat(Math.min(token.length - 8, 4));
     
     return `${start}${stars}${end}`;
+  },
+
+  validateLaunchArgs(args) {
+    if (!Array.isArray(args)) {
+      return '启动参数必须是数组';
+    }
+    
+    const validArgs = [
+      '--dangerously-skip-permissions',
+      '--no-confirm', 
+      '--allow-all',
+      '--auto-approve',
+      '--yes',
+      '--force'
+    ];
+    
+    for (const arg of args) {
+      if (!validArgs.includes(arg)) {
+        return `无效的启动参数: ${arg}`;
+      }
+    }
+    
+    return null;
+  },
+
+  getAvailableLaunchArgs() {
+    return [
+      {
+        name: '--dangerously-skip-permissions',
+        description: '跳过权限检查（最大化权限）',
+        checked: false
+      },
+      {
+        name: '--no-confirm',
+        description: '跳过确认提示',
+        checked: false
+      },
+      {
+        name: '--allow-all',
+        description: '允许所有操作',
+        checked: false
+      },
+      {
+        name: '--auto-approve',
+        description: '自动批准操作',
+        checked: false
+      },
+      {
+        name: '--yes',
+        description: '自动回答yes',
+        checked: false
+      },
+      {
+        name: '--force',
+        description: '强制执行操作',
+        checked: false
+      }
+    ];
   }
 };
 

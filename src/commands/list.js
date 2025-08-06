@@ -31,6 +31,9 @@ class ProviderLister {
         console.log(`${status} ${nameColor(provider.name)} (${provider.displayName})`);
         console.log(chalk.gray(`   URL: ${provider.baseUrl}`));
         console.log(chalk.gray(`   Token: ${validator.maskToken(provider.authToken)}`));
+        if (provider.launchArgs && provider.launchArgs.length > 0) {
+          console.log(chalk.gray(`   启动参数: ${provider.launchArgs.join(' ')}`));
+        }
         console.log(chalk.gray(`   创建时间: ${new Date(provider.createdAt).toLocaleString()}`));
         console.log(chalk.gray(`   最后使用: ${new Date(provider.lastUsed).toLocaleString()}`));
         

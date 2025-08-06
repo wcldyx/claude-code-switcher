@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(claude-code:*)",
+      "Bash(node:*)",
+      "Bash(rm:*)",
+      "Bash(timeout:*)",
+      "Bash(npm test:*)"
+    ],
+    "deny": []
+  }
+}

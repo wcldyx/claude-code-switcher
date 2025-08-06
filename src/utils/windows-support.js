@@ -43,7 +43,7 @@ class WindowsSupport {
     return path.join(os.homedir(), '.cc-config.json');
   }
 
-  static async executeWithEnv(config) {
+  static async executeWithEnv(config, launchArgs = []) {
     const spawn = require('cross-spawn');
     
     return new Promise((resolve, reject) => {
@@ -53,7 +53,8 @@ class WindowsSupport {
         ANTHROPIC_AUTH_TOKEN: config.authToken
       };
 
-      const child = spawn('claude', [], {
+      const args = [...launchArgs];
+      const child = spawn('claude', args, {
         stdio: 'inherit',
         env,
         shell: true
@@ -73,13 +74,13 @@ class WindowsSupport {
     });
   }
 
-  static createBatchScript(config) {
+  static createBatchScript(config, launchArgs = []) {
     const commands = [
       `@echo off`,
       `set ANTHROPIC_BASE_URL=${config.baseUrl}`,
       `set ANTHROPIC_AUTH_TOKEN=${config.authToken}`,
       `echo 环境变量已设置，正在启动 Claude Code...`,
-      `claude`,
+      `claude ${launchArgs.join(' ')}`,
       `echo Claude Code 已退出`
     ];
     
