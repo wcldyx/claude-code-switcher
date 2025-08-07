@@ -54,7 +54,11 @@ class WindowsSupport {
       // 根据认证模式设置不同的环境变量
       if (config.authMode === 'oauth_token') {
         env.CLAUDE_CODE_OAUTH_TOKEN = config.authToken;
+      } else if (config.authMode === 'api_key') {
+        env.ANTHROPIC_BASE_URL = config.baseUrl;
+        env.ANTHROPIC_API_KEY = config.authToken;
       } else {
+        // auth_token 模式或默认模式
         env.ANTHROPIC_BASE_URL = config.baseUrl;
         env.ANTHROPIC_AUTH_TOKEN = config.authToken;
       }
@@ -86,7 +90,11 @@ class WindowsSupport {
     // 根据认证模式设置不同的环境变量
     if (config.authMode === 'oauth_token') {
       commands.push(`set CLAUDE_CODE_OAUTH_TOKEN=${config.authToken}`);
+    } else if (config.authMode === 'api_key') {
+      commands.push(`set ANTHROPIC_BASE_URL=${config.baseUrl}`);
+      commands.push(`set ANTHROPIC_API_KEY=${config.authToken}`);
     } else {
+      // auth_token 模式或默认模式
       commands.push(`set ANTHROPIC_BASE_URL=${config.baseUrl}`);
       commands.push(`set ANTHROPIC_AUTH_TOKEN=${config.authToken}`);
     }

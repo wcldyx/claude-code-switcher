@@ -172,10 +172,11 @@ class ProviderAdder extends BaseCommand {
           name: 'authMode',
           message: '选择认证模式:',
           choices: [
-            { name: '🔑 API密钥模式 - 适用于第三方服务商', value: 'api_token' },
-            { name: '🔐 OAuth令牌模式 - 适用于官方Claude Code', value: 'oauth_token' }
+            { name: '🔑 API密钥模式 (ANTHROPIC_API_KEY) - 适用于第三方服务商', value: 'api_key' },
+            { name: '🔐 认证令牌模式 (ANTHROPIC_AUTH_TOKEN) - 适用于第三方服务商', value: 'auth_token' },
+            { name: '🌐 OAuth令牌模式 (CLAUDE_CODE_OAUTH_TOKEN) - 适用于官方Claude Code', value: 'oauth_token' }
           ],
-          default: 'api_token'
+          default: 'api_key'
         },
         {
           type: 'input',
@@ -186,12 +187,23 @@ class ProviderAdder extends BaseCommand {
             if (error) return error;
             return true;
           },
-          when: (answers) => answers.authMode === 'api_token'
+          when: (answers) => answers.authMode === 'api_key' || answers.authMode === 'auth_token'
         },
         {
           type: 'input',
           name: 'authToken',
-          message: '请输入认证令牌 (Token):',
+          message: (answers) => {
+            switch (answers.authMode) {
+              case 'api_key':
+                return '请输入API密钥 (ANTHROPIC_API_KEY):';
+              case 'auth_token':
+                return '请输入认证令牌 (ANTHROPIC_AUTH_TOKEN):';
+              case 'oauth_token':
+                return '请输入OAuth令牌 (CLAUDE_CODE_OAUTH_TOKEN):';
+              default:
+                return '请输入认证令牌:';
+            }
+          },
           validate: (input) => {
             const error = validator.validateToken(input);
             if (error) return error;
@@ -380,7 +392,12 @@ class ProviderAdder extends BaseCommand {
       console.log(chalk.blue('\n配置详情:'));
       console.log(chalk.gray(`  名称: ${answers.name}`));
       console.log(chalk.gray(`  显示名称: ${finalDisplayName}`));
-      console.log(chalk.gray(`  认证模式: ${answers.authMode === 'oauth_token' ? 'OAuth令牌模式' : 'API密钥模式'}`));
+      const authModeDisplay = {
+        'api_key': 'API密钥模式 (ANTHROPIC_API_KEY)',
+        'auth_token': '认证令牌模式 (ANTHROPIC_AUTH_TOKEN)',
+        'oauth_token': 'OAuth令牌模式 (CLAUDE_CODE_OAUTH_TOKEN)'
+      };
+      console.log(chalk.gray(`  认证模式: ${authModeDisplay[answers.authMode] || answers.authMode}`));
       if (answers.baseUrl) {
         console.log(chalk.gray(`  基础URL: ${answers.baseUrl}`));
       }

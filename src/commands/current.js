@@ -43,7 +43,10 @@ class CurrentConfig {
       }
       if (currentProvider.authMode === 'oauth_token') {
         console.log(chalk.gray(`set CLAUDE_CODE_OAUTH_TOKEN=${currentProvider.authToken}`));
+      } else if (currentProvider.authMode === 'api_key') {
+        console.log(chalk.gray(`set ANTHROPIC_API_KEY=${currentProvider.authToken}`));
       } else {
+        // auth_token 模式或默认模式
         console.log(chalk.gray(`set ANTHROPIC_AUTH_TOKEN=${currentProvider.authToken}`));
       }
       if (currentProvider.models?.primary) {

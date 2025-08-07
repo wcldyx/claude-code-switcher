@@ -53,6 +53,10 @@ class ConfigManager {
         const stat = await fs.stat(this.configPath);
         const data = await fs.readJSON(this.configPath);
         this.config = { ...this.getDefaultConfig(), ...data };
+
+        // 迁移旧的认证模式
+        this._migrateAuthModes();
+
         this.lastModified = stat.mtime;
       } else {
         this.config = this.getDefaultConfig();
@@ -70,6 +74,18 @@ class ConfigManager {
       }
       console.error(chalk.red('❌ 加载配置失败:'), error.message);
       throw error;
+    }
+  }
+
+  _migrateAuthModes() {
+    // 迁移旧的 api_token 模式到新的 auth_token 模式
+    if (this.config.providers) {
+      Object.keys(this.config.providers).forEach(key => {
+        const provider = this.config.providers[key];
+        if (provider.authMode === 'api_token') {
+          provider.authMode = 'auth_token';
+        }
+      });
     }
   }
 
@@ -122,7 +138,7 @@ class ConfigManager {
       displayName: providerConfig.displayName || name,
       baseUrl: providerConfig.baseUrl,
       authToken: providerConfig.authToken,
-      authMode: providerConfig.authMode || 'api_token',
+      authMode: providerConfig.authMode || 'api_key',
       launchArgs: providerConfig.launchArgs || [],
       models: {
         primary: providerConfig.primaryModel || null,
