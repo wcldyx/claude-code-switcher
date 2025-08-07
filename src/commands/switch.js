@@ -147,6 +147,10 @@ class EnvSwitcher extends BaseCommand {
         { name: `${UIHelper.icons.error} 退出`, value: '__EXIT__' }
       );
 
+      // 获取当前供应商作为默认选项
+      const currentProvider = providers.find(p => p.current);
+      const defaultChoice = currentProvider ? currentProvider.name : providers[0]?.name;
+
       // 设置 ESC 键监听
       const escListener = this.createESCListener(() => {
         Logger.info('退出程序');
@@ -160,6 +164,7 @@ class EnvSwitcher extends BaseCommand {
           name: 'provider',
           message: '请选择要切换的供应商:',
           choices,
+          default: defaultChoice,
           pageSize: 12
         }
       ]);
@@ -353,6 +358,10 @@ class EnvSwitcher extends BaseCommand {
       { name: `${UIHelper.icons.back} 返回设置`, value: 'back' }
     );
 
+    // 获取当前供应商作为默认选项（在搜索结果中）
+    const currentProvider = searchResults.find(p => p.current);
+    const defaultChoice = currentProvider ? currentProvider.name : searchResults[0]?.name;
+
     // 设置 ESC 键监听
     const escListener2 = this.createESCListener(() => {
       Logger.info('返回快速设置');
@@ -365,6 +374,7 @@ class EnvSwitcher extends BaseCommand {
         name: 'provider',
         message: '搜索结果:',
         choices,
+        default: defaultChoice,
         pageSize: 10
       }
     ]);
@@ -519,6 +529,10 @@ class EnvSwitcher extends BaseCommand {
         { name: '🔙 返回', value: 'back' }
       );
 
+      // 获取当前供应商作为默认选项
+      const currentProvider = providers.find(p => p.current);
+      const defaultChoice = currentProvider ? currentProvider.name : providers[0]?.name;
+
       // 设置 ESC 键监听
       const escListener = this.createESCListener(() => {
         Logger.info('返回管理列表');
@@ -531,6 +545,7 @@ class EnvSwitcher extends BaseCommand {
           name: 'provider',
           message,
           choices,
+          default: defaultChoice,
           pageSize: 10
         }
       ]);
@@ -571,7 +586,9 @@ class EnvSwitcher extends BaseCommand {
         ['显示名称', provider.displayName],
         ['认证模式', provider.authMode === 'oauth_token' ? 'OAuth令牌模式' : 'API密钥模式'],
         ['基础URL', provider.baseUrl || (provider.authMode === 'oauth_token' ? '✨ 官方默认服务器' : '⚠️ 未设置')],
-        ['认证令牌', provider.authToken ? '••••••••' : '未设置'],
+        ['认证令牌', provider.authToken || '未设置'],
+        ['主模型', provider.models?.primary || '未设置'],
+        ['快速模型', provider.models?.smallFast || '未设置'],
         ['创建时间', UIHelper.formatTime(provider.createdAt)],
         ['最后使用', UIHelper.formatTime(provider.lastUsed)],
         ['当前状态', provider.current ? '✅ 使用中' : '⚫ 未使用'],
@@ -677,6 +694,28 @@ class EnvSwitcher extends BaseCommand {
           name: 'authToken',
           message: '认证令牌 (Token):',
           default: provider.authToken
+        },
+        {
+          type: 'input',
+          name: 'primaryModel',
+          message: '主模型 (ANTHROPIC_MODEL):',
+          default: provider.models?.primary || '',
+          validate: (input) => {
+            const error = validator.validateModel(input);
+            if (error) return error;
+            return true;
+          }
+        },
+        {
+          type: 'input',
+          name: 'smallFastModel',
+          message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL):',
+          default: provider.models?.smallFast || '',
+          validate: (input) => {
+            const error = validator.validateModel(input);
+            if (error) return error;
+            return true;
+          }
         }
       ]);
 
@@ -685,6 +724,13 @@ class EnvSwitcher extends BaseCommand {
       provider.baseUrl = answers.baseUrl;
       provider.authToken = answers.authToken;
       provider.authMode = answers.authMode;
+      
+      // 更新模型配置
+      if (!provider.models) {
+        provider.models = {};
+      }
+      provider.models.primary = answers.primaryModel || null;
+      provider.models.smallFast = answers.smallFastModel || null;
 
       await this.configManager.save();
       Logger.success(`供应商 '${providerName}' 已更新`);

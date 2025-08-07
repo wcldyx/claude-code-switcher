@@ -64,7 +64,7 @@ class ProviderRemover extends BaseCommand {
     console.log();
 
     const choices = providers.map(provider => ({
-      name: `${provider.current ? '✅' : '🔹'} ${provider.name} (${provider.displayName})`,
+      name: `${provider.current ? '✅' : '🔹'} ${provider.name} (${provider.displayName})${provider.current ? ' - 当前使用中' : ''}`,
       value: provider.name,
       short: provider.name
     }));
@@ -73,6 +73,10 @@ class ProviderRemover extends BaseCommand {
       new inquirer.Separator(),
       { name: '❌ 取消删除', value: '__CANCEL__' }
     );
+
+    // 对于删除操作，不默认选中当前供应商，而是选中第一个非当前的供应商
+    const nonCurrentProvider = providers.find(p => !p.current);
+    const defaultChoice = nonCurrentProvider ? nonCurrentProvider.name : providers[0]?.name;
 
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
@@ -89,6 +93,7 @@ class ProviderRemover extends BaseCommand {
           name: 'provider',
           message: '选择要删除的供应商:',
           choices,
+          default: defaultChoice,
           pageSize: 10
         }
       ]);

@@ -124,6 +124,10 @@ class ConfigManager {
       authToken: providerConfig.authToken,
       authMode: providerConfig.authMode || 'api_token',
       launchArgs: providerConfig.launchArgs || [],
+      models: {
+        primary: providerConfig.primaryModel || null,
+        smallFast: providerConfig.smallFastModel || null
+      },
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
       current: false

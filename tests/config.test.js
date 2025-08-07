@@ -150,11 +150,21 @@ describe('validator', () => {
     });
   });
 
-  describe('maskToken', () => {
-    test('should mask token correctly', () => {
-      expect(validator.maskToken('sk-ant-1234567890')).toBe('sk-a****7890');
-      expect(validator.maskToken('short')).toBe('short');
-      expect(validator.maskToken('')).toBe('');
+  describe('validateModel', () => {
+    test('should accept valid model names', () => {
+      expect(validator.validateModel('kimi-k2-turbo-preview')).toBeNull();
+      expect(validator.validateModel('gpt-4-turbo')).toBeNull();
+      expect(validator.validateModel('claude-3-sonnet')).toBeNull();
+      expect(validator.validateModel('')).toBeNull(); // 允许空值
+      expect(validator.validateModel(null)).toBeNull(); // 允许null
+      expect(validator.validateModel(undefined)).toBeNull(); // 允许undefined
+    });
+
+    test('should reject invalid model names', () => {
+      expect(validator.validateModel('   ')).toBe('模型名称不能为空字符串');
+      expect(validator.validateModel(123)).toBe('模型名称必须是字符串');
+      expect(validator.validateModel('a'.repeat(101))).toBe('模型名称不能超过100个字符');
     });
   });
+
 });

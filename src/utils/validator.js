@@ -66,16 +66,25 @@ const validator = {
     return null;
   },
 
-  maskToken(token) {
-    if (!token || token.length < 8) {
-      return token;
+  validateModel(model) {
+    // 允许空值，表示可选
+    if (!model) {
+      return null;
     }
     
-    const start = token.substring(0, 4);
-    const end = token.substring(token.length - 4);
-    const stars = '*'.repeat(Math.min(token.length - 8, 4));
+    if (typeof model !== 'string') {
+      return '模型名称必须是字符串';
+    }
     
-    return `${start}${stars}${end}`;
+    if (model.trim().length === 0) {
+      return '模型名称不能为空字符串';
+    }
+    
+    if (model.length > 100) {
+      return '模型名称不能超过100个字符';
+    }
+    
+    return null;
   },
 
   validateLaunchArgs(args) {

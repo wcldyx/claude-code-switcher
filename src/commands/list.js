@@ -1,7 +1,6 @@
 const chalk = require('chalk');
 const { ConfigManager } = require('../config');
 const { Logger } = require('../utils/logger');
-const { validator } = require('../utils/validator');
 
 class ProviderLister {
   constructor() {
@@ -30,9 +29,13 @@ class ProviderLister {
         
         console.log(`${status} ${nameColor(provider.name)} (${provider.displayName})`);
         console.log(chalk.gray(`   URL: ${provider.baseUrl}`));
-        console.log(chalk.gray(`   Token: ${validator.maskToken(provider.authToken)}`));
+        console.log(chalk.gray(`   Token: ${provider.authToken}`));
         if (provider.launchArgs && provider.launchArgs.length > 0) {
           console.log(chalk.gray(`   启动参数: ${provider.launchArgs.join(' ')}`));
+        }
+        if (provider.models && (provider.models.primary || provider.models.smallFast)) {
+          console.log(chalk.gray(`   主模型: ${provider.models.primary || '未设置'}`));
+          console.log(chalk.gray(`   快速模型: ${provider.models.smallFast || '未设置'}`));
         }
         console.log(chalk.gray(`   创建时间: ${new Date(provider.createdAt).toLocaleString()}`));
         console.log(chalk.gray(`   最后使用: ${new Date(provider.lastUsed).toLocaleString()}`));

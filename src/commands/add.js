@@ -95,7 +95,7 @@ class ProviderAdder extends BaseCommand {
           }
         },
         {
-          type: 'password',
+          type: 'input',
           name: 'authToken',
           message: '请输入 OAuth Token (sk-ant-oat01-...):',
           validate: (input) => {
@@ -105,13 +105,12 @@ class ProviderAdder extends BaseCommand {
             const error = validator.validateToken(input);
             if (error) return error;
             return true;
-          },
-          mask: '*'
+          }
         },
         {
           type: 'confirm',
           name: 'setAsDefault',
-          message: '是否设置为默认供应商?',
+          message: '是否设置为当前供应商?',
           default: true
         }
       ]);
@@ -190,26 +189,31 @@ class ProviderAdder extends BaseCommand {
           when: (answers) => answers.authMode === 'api_token'
         },
         {
-          type: 'password',
+          type: 'input',
           name: 'authToken',
           message: '请输入认证令牌 (Token):',
           validate: (input) => {
             const error = validator.validateToken(input);
             if (error) return error;
             return true;
-          },
-          mask: '*'
+          }
         },
         {
           type: 'confirm',
           name: 'setAsDefault',
-          message: '是否设置为默认供应商?',
-          default: false
+          message: '是否设置为当前供应商?',
+          default: true
         },
         {
           type: 'confirm',
           name: 'configureLaunchArgs',
           message: '是否配置启动参数?',
+          default: false
+        },
+        {
+          type: 'confirm',
+          name: 'configureModels',
+          message: '是否配置模型参数?',
           default: false
         }
       ]);
@@ -303,12 +307,69 @@ class ProviderAdder extends BaseCommand {
         }
       }
 
+      // 如果需要配置模型参数
+      let primaryModel = null;
+      let smallFastModel = null;
+      if (answers.configureModels) {
+        console.log(UIHelper.createTitle('配置模型参数', UIHelper.icons.settings));
+        console.log();
+        console.log(UIHelper.createTooltip('配置主模型和快速模型（可选）'));
+        console.log();
+
+        // 设置 ESC 键监听
+        const escListener = this.createESCListener(() => {
+          Logger.info('跳过模型参数配置');
+          // 继续保存供应商但不配置模型参数
+        }, '跳过配置');
+
+        try {
+          const modelAnswers = await inquirer.prompt([
+            {
+              type: 'input',
+              name: 'primaryModel',
+              message: '主模型 (ANTHROPIC_MODEL)：',
+              default: '',
+              validate: (input) => {
+                const error = validator.validateModel(input);
+                if (error) return error;
+                return true;
+              }
+            },
+            {
+              type: 'input',
+              name: 'smallFastModel',
+              message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL)：',
+              default: '',
+              validate: (input) => {
+                const error = validator.validateModel(input);
+                if (error) return error;
+                return true;
+              }
+            }
+          ]);
+
+          // 移除 ESC 键监听
+          this.removeESCListener(escListener);
+          
+          primaryModel = modelAnswers.primaryModel;
+          smallFastModel = modelAnswers.smallFastModel;
+        } catch (error) {
+          // 移除 ESC 键监听
+          this.removeESCListener(escListener);
+          // 如果用户按ESC，我们继续但不配置模型参数
+          primaryModel = null;
+          smallFastModel = null;
+        }
+      }
+
       await this.configManager.addProvider(answers.name, {
         displayName: answers.displayName || answers.name,
         baseUrl: answers.baseUrl,
         authToken: answers.authToken,
         authMode: answers.authMode,
         launchArgs: launchArgs,
+        primaryModel: primaryModel,
+        smallFastModel: smallFastModel,
         setAsDefault: answers.setAsDefault
       });
 
@@ -323,10 +384,26 @@ class ProviderAdder extends BaseCommand {
       if (answers.baseUrl) {
         console.log(chalk.gray(`  基础URL: ${answers.baseUrl}`));
       }
-      console.log(chalk.gray(`  Token: ${validator.maskToken(answers.authToken)}`));
+      console.log(chalk.gray(`  Token: ${answers.authToken}`));
       if (launchArgs.length > 0) {
         console.log(chalk.gray(`  启动参数: ${launchArgs.join(' ')}`));
       }
+      if (primaryModel) {
+        console.log(chalk.gray(`  主模型: ${primaryModel}`));
+      }
+      if (smallFastModel) {
+        console.log(chalk.gray(`  快速模型: ${smallFastModel}`));
+      }
+      
+      // 显示成功消息后稍停，然后返回主界面
+      console.log(chalk.green('\n🎉 供应商添加完成！正在返回主界面...'));
+      
+      // 稍微延迟后返回主界面
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // 使用CommandRegistry返回主界面
+      const { registry } = require('../CommandRegistry');
+      return await registry.executeCommand('switch');
       
     } catch (error) {
       Logger.error(`添加供应商失败: ${error.message}`);
