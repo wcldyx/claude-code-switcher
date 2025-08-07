@@ -1,94 +1,15 @@
 const inquirer = require('inquirer');
 const chalk = require('chalk');
-const readline = require('readline');
 const { ConfigManager } = require('../config');
 const { validator } = require('../utils/validator');
 const { Logger } = require('../utils/logger');
 const { UIHelper } = require('../utils/ui-helper');
+const { BaseCommand } = require('./BaseCommand');
 
-class ProviderAdder {
+class ProviderAdder extends BaseCommand {
   constructor() {
+    super();
     this.configManager = new ConfigManager();
-  }
-
-  // 创建 ESC 键监听器
-  createESCListener(callback, returnMessage = '返回上级菜单') {
-    if (process.stdin.setRawMode) {
-      readline.emitKeypressEvents(process.stdin);
-      process.stdin.setRawMode(true);
-      
-      let escTimeout = null;
-      
-      const listener = (str, key) => {
-        if (key.name === 'escape') {
-          // 清除之前的超时
-          if (escTimeout) {
-            clearTimeout(escTimeout);
-          }
-          
-          // 设置超时来区分真正的ESC键和其他组合键
-          escTimeout = setTimeout(() => {
-            process.stdin.setRawMode(false);
-            process.stdin.removeListener('keypress', listener);
-            
-            // 清理屏幕并显示返回信息
-            this.clearScreen();
-            console.log(chalk.yellow(`🔙 ESC键 - ${returnMessage}`));
-            console.log();
-            
-            if (callback) {
-              // 使用setTimeout让界面切换更流畅
-              setTimeout(callback, 50);
-            }
-          }, 30); // 30ms延迟，优化响应速度
-        } else if (escTimeout) {
-          // 如果是其他键，清除ESC超时（表示是组合键）
-          clearTimeout(escTimeout);
-          escTimeout = null;
-        }
-      };
-      
-      process.stdin.on('keypress', listener);
-      
-      // 返回一个包含超时的监听器对象
-      return {
-        listener,
-        cleanup: () => {
-          if (escTimeout) {
-            clearTimeout(escTimeout);
-          }
-          process.stdin.setRawMode(false);
-          process.stdin.removeListener('keypress', listener);
-        }
-      };
-    } else {
-      // 在不支持 setRawMode 的环境中，返回空的监听器
-      return null;
-    }
-  }
-
-  // 清理屏幕
-  clearScreen() {
-    // 使用更可靠的清屏方法
-    if (process.platform === 'win32') {
-      process.stdout.write('\x1b[2J\x1b[0f');
-    } else {
-      process.stdout.write('\x1b[2J\x1b[H');
-    }
-  }
-
-  // 移除 ESC 键监听器
-  removeESCListener(listener) {
-    if (listener && process.stdin.setRawMode) {
-      if (typeof listener === 'object' && listener.cleanup) {
-        // 新的监听器对象，使用cleanup方法
-        listener.cleanup();
-      } else {
-        // 旧的监听器函数（保持向后兼容）
-        process.stdin.setRawMode(false);
-        process.stdin.removeListener('keypress', listener);
-      }
-    }
   }
 
   async interactive() {
@@ -100,9 +21,9 @@ class ProviderAdder {
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
       Logger.info('取消添加供应商');
-      // 返回供应商选择界面
-      const { switchCommand } = require('./switch');
-      switchCommand();
+      // 使用CommandRegistry避免循环引用
+      const { registry } = require('../CommandRegistry');
+      registry.executeCommand('switch');
     }, '取消添加');
 
     try {
@@ -144,9 +65,9 @@ class ProviderAdder {
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
       Logger.info('取消添加供应商');
-      // 返回供应商选择界面
-      const { switchCommand } = require('./switch');
-      switchCommand();
+      // 使用CommandRegistry避免循环引用
+      const { registry } = require('../CommandRegistry');
+      registry.executeCommand('switch');
     }, '取消添加');
 
     try {
@@ -220,9 +141,9 @@ class ProviderAdder {
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
       Logger.info('取消添加供应商');
-      // 返回供应商选择界面
-      const { switchCommand } = require('./switch');
-      switchCommand();
+      // 使用CommandRegistry避免循环引用
+      const { registry } = require('../CommandRegistry');
+      registry.executeCommand('switch');
     }, '取消添加');
 
     try {
@@ -252,8 +173,8 @@ class ProviderAdder {
           name: 'authMode',
           message: '选择认证模式:',
           choices: [
-            { name: 'API Token (ANTHROPIC_AUTH_TOKEN)', value: 'api_token' },
-            { name: 'OAuth Token (CLAUDE_CODE_OAUTH_TOKEN)', value: 'oauth_token' }
+            { name: '🔑 API密钥模式 - 适用于第三方服务商', value: 'api_token' },
+            { name: '🔐 OAuth令牌模式 - 适用于官方Claude Code', value: 'oauth_token' }
           ],
           default: 'api_token'
         },
@@ -271,7 +192,7 @@ class ProviderAdder {
         {
           type: 'password',
           name: 'authToken',
-          message: '请输入认证Token:',
+          message: '请输入认证令牌 (Token):',
           validate: (input) => {
             const error = validator.validateToken(input);
             if (error) return error;
@@ -398,7 +319,7 @@ class ProviderAdder {
       console.log(chalk.blue('\n配置详情:'));
       console.log(chalk.gray(`  名称: ${answers.name}`));
       console.log(chalk.gray(`  显示名称: ${finalDisplayName}`));
-      console.log(chalk.gray(`  认证模式: ${answers.authMode === 'oauth_token' ? 'OAuth Token' : 'API Token'}`));
+      console.log(chalk.gray(`  认证模式: ${answers.authMode === 'oauth_token' ? 'OAuth令牌模式' : 'API密钥模式'}`));
       if (answers.baseUrl) {
         console.log(chalk.gray(`  基础URL: ${answers.baseUrl}`));
       }

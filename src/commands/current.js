@@ -10,7 +10,7 @@ class CurrentConfig {
 
   async show() {
     try {
-      await this.configManager.load();
+      await this.configManager.ensureLoaded();
       const currentProvider = this.configManager.getCurrentProvider();
       
       if (!currentProvider) {

@@ -4,6 +4,7 @@ const path = require('path');
 const { program } = require('commander');
 const chalk = require('chalk');
 const { main } = require('../src/index');
+const { registry } = require('../src/CommandRegistry');
 
 // Set up CLI
 program
@@ -29,8 +30,7 @@ program
   .description('添加新供应商配置')
   .action(async () => {
     try {
-      const { addCommand } = require('../src/commands/add');
-      await addCommand();
+      await registry.executeCommand('add');
     } catch (error) {
       console.error(chalk.red('❌ 添加失败:'), error.message);
       process.exit(1);
@@ -44,8 +44,7 @@ program
   .description('删除供应商配置')
   .action(async (provider) => {
     try {
-      const { removeCommand } = require('../src/commands/remove');
-      await removeCommand(provider);
+      await registry.executeCommand('remove', provider);
     } catch (error) {
       console.error(chalk.red('❌ 删除失败:'), error.message);
       process.exit(1);
@@ -58,8 +57,7 @@ program
   .description('列出所有供应商')
   .action(async () => {
     try {
-      const { listCommand } = require('../src/commands/list');
-      await listCommand();
+      await registry.executeCommand('list');
     } catch (error) {
       console.error(chalk.red('❌ 列表失败:'), error.message);
       process.exit(1);
@@ -72,8 +70,7 @@ program
   .description('显示当前配置')
   .action(async () => {
     try {
-      const { currentCommand } = require('../src/commands/current');
-      await currentCommand();
+      await registry.executeCommand('current');
     } catch (error) {
       console.error(chalk.red('❌ 获取当前配置失败:'), error.message);
       process.exit(1);

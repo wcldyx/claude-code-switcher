@@ -1,99 +1,15 @@
 const inquirer = require('inquirer');
 const chalk = require('chalk');
-const readline = require('readline');
 const { ConfigManager } = require('../config');
 const { WindowsSupport } = require('../utils/windows-support');
 const { Logger } = require('../utils/logger');
 const { UIHelper } = require('../utils/ui-helper');
+const { BaseCommand } = require('./BaseCommand');
 
-class EnvSwitcher {
+class EnvSwitcher extends BaseCommand {
   constructor() {
+    super();
     this.configManager = new ConfigManager();
-  }
-
-  // 创建 ESC 键监听器
-  createESCListener(callback, returnMessage = '返回上级菜单') {
-    if (process.stdin.setRawMode) {
-      readline.emitKeypressEvents(process.stdin);
-      process.stdin.setRawMode(true);
-      
-      let escTimeout = null;
-      
-      const listener = (str, key) => {
-        if (key.name === 'escape') {
-          // 清除之前的超时
-          if (escTimeout) {
-            clearTimeout(escTimeout);
-          }
-          
-          // 设置超时来区分真正的ESC键和其他组合键
-          escTimeout = setTimeout(() => {
-            process.stdin.setRawMode(false);
-            process.stdin.removeListener('keypress', listener);
-            
-            // 清理屏幕并显示返回信息
-            this.clearScreen();
-            console.log(chalk.yellow(`🔙 ESC键 - ${returnMessage}`));
-            console.log();
-            
-            if (callback) {
-              // 使用setTimeout让界面切换更流畅
-              setTimeout(callback, 50);
-            }
-          }, 30); // 30ms延迟，优化响应速度
-        } else if (escTimeout) {
-          // 如果是其他键，清除ESC超时（表示是组合键）
-          clearTimeout(escTimeout);
-          escTimeout = null;
-        }
-      };
-      
-      process.stdin.on('keypress', listener);
-      
-      // 返回一个包含超时的监听器对象
-      return {
-        listener,
-        cleanup: () => {
-          if (escTimeout) {
-            clearTimeout(escTimeout);
-          }
-          process.stdin.setRawMode(false);
-          process.stdin.removeListener('keypress', listener);
-        }
-      };
-    } else {
-      // 在不支持 setRawMode 的环境中，返回空的监听器
-      return null;
-    }
-  }
-
-  // 清理屏幕
-  clearScreen() {
-    // 使用更可靠的清屏方法
-    if (process.platform === 'win32') {
-      process.stdout.write('\x1b[2J\x1b[0f');
-    } else {
-      process.stdout.write('\x1b[2J\x1b[H');
-    }
-  }
-
-  // 移除 ESC 键监听器
-  removeESCListener(listener) {
-    if (listener && process.stdin.setRawMode) {
-      if (typeof listener === 'object' && listener.cleanup) {
-        // 新的监听器对象，使用cleanup方法
-        listener.cleanup();
-      } else {
-        // 旧的监听器函数（保持向后兼容）
-        process.stdin.setRawMode(false);
-        process.stdin.removeListener('keypress', listener);
-      }
-    }
-  }
-
-  async handleError(error, context) {
-    Logger.error(`${context}失败: ${error.message}`);
-    throw error;
   }
 
   async validateProvider(providerName) {
@@ -208,8 +124,8 @@ class EnvSwitcher {
 
   async showProviderSelection() {
     try {
-      await this.configManager.load();
-      const providers = this.configManager.listProviders();
+      // 并行加载配置和准备界面
+      const providers = await this.configManager.ensureLoaded().then(() => this.configManager.listProviders());
       
       // 显示欢迎界面
       this.showWelcomeScreen(providers);
@@ -287,8 +203,9 @@ class EnvSwitcher {
   async handleSelection(selection) {
     switch (selection) {
       case '__ADD__':
-        const { addCommand } = require('./add');
-        return await addCommand();
+        // 使用CommandRegistry避免循环引用
+        const { registry } = require('../CommandRegistry');
+        return await registry.executeCommand('add');
       case '__MANAGE__':
         return await this.showManageMenu();
       case '__SETTINGS__':
@@ -652,8 +569,8 @@ class EnvSwitcher {
       const details = [
         ['供应商名称', provider.name],
         ['显示名称', provider.displayName],
-        ['认证模式', provider.authMode === 'oauth_token' ? 'OAuth Token' : 'API Token'],
-        ['基础URL', provider.baseUrl || (provider.authMode === 'oauth_token' ? '使用默认' : '未设置')],
+        ['认证模式', provider.authMode === 'oauth_token' ? 'OAuth令牌模式' : 'API密钥模式'],
+        ['基础URL', provider.baseUrl || (provider.authMode === 'oauth_token' ? '✨ 官方默认服务器' : '⚠️ 未设置')],
         ['认证令牌', provider.authToken ? '••••••••' : '未设置'],
         ['创建时间', UIHelper.formatTime(provider.createdAt)],
         ['最后使用', UIHelper.formatTime(provider.lastUsed)],
@@ -743,8 +660,8 @@ class EnvSwitcher {
           name: 'authMode',
           message: '认证模式:',
           choices: [
-            { name: 'API Token (ANTHROPIC_AUTH_TOKEN)', value: 'api_token' },
-            { name: 'OAuth Token (CLAUDE_CODE_OAUTH_TOKEN)', value: 'oauth_token' }
+            { name: '🔑 API密钥模式 - 适用于第三方服务商', value: 'api_token' },
+            { name: '🔐 OAuth令牌模式 - 适用于官方Claude Code', value: 'oauth_token' }
           ],
           default: provider.authMode || 'api_token'
         },
@@ -758,7 +675,7 @@ class EnvSwitcher {
         {
           type: 'input',
           name: 'authToken',
-          message: '认证令牌:',
+          message: '认证令牌 (Token):',
           default: provider.authToken
         }
       ]);
@@ -832,10 +749,15 @@ class EnvSwitcher {
 async function switchCommand(providerName) {
   const switcher = new EnvSwitcher();
   
-  if (providerName) {
-    await switcher.showLaunchArgsSelection(providerName);
-  } else {
-    await switcher.showProviderSelection();
+  try {
+    if (providerName) {
+      await switcher.showLaunchArgsSelection(providerName);
+    } else {
+      await switcher.showProviderSelection();
+    }
+  } finally {
+    // 确保资源清理
+    switcher.destroy();
   }
 }
 

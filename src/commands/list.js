@@ -10,7 +10,7 @@ class ProviderLister {
 
   async list() {
     try {
-      await this.configManager.load();
+      await this.configManager.ensureLoaded();
       const providers = this.configManager.listProviders();
       const currentProvider = this.configManager.getCurrentProvider();
 
