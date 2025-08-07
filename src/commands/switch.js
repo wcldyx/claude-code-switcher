@@ -652,7 +652,8 @@ class EnvSwitcher {
       const details = [
         ['供应商名称', provider.name],
         ['显示名称', provider.displayName],
-        ['基础URL', provider.baseUrl],
+        ['认证模式', provider.authMode === 'oauth_token' ? 'OAuth Token' : 'API Token'],
+        ['基础URL', provider.baseUrl || (provider.authMode === 'oauth_token' ? '使用默认' : '未设置')],
         ['认证令牌', provider.authToken ? '••••••••' : '未设置'],
         ['创建时间', UIHelper.formatTime(provider.createdAt)],
         ['最后使用', UIHelper.formatTime(provider.lastUsed)],
@@ -738,10 +739,21 @@ class EnvSwitcher {
           default: provider.displayName
         },
         {
+          type: 'list',
+          name: 'authMode',
+          message: '认证模式:',
+          choices: [
+            { name: 'API Token (ANTHROPIC_AUTH_TOKEN)', value: 'api_token' },
+            { name: 'OAuth Token (CLAUDE_CODE_OAUTH_TOKEN)', value: 'oauth_token' }
+          ],
+          default: provider.authMode || 'api_token'
+        },
+        {
           type: 'input',
           name: 'baseUrl',
           message: '基础URL:',
-          default: provider.baseUrl
+          default: provider.baseUrl,
+          when: (answers) => answers.authMode === 'api_token'
         },
         {
           type: 'input',
@@ -755,6 +767,7 @@ class EnvSwitcher {
       provider.displayName = answers.displayName;
       provider.baseUrl = answers.baseUrl;
       provider.authToken = answers.authToken;
+      provider.authMode = answers.authMode;
 
       await this.configManager.save();
       Logger.success(`供应商 '${providerName}' 已更新`);

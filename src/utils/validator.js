@@ -4,28 +4,25 @@ const validator = {
       return '供应商名称不能为空';
     }
     
-    if (name.length < 2) {
-      return '供应商名称至少需要2个字符';
+    if (name.trim().length === 0) {
+      return '供应商名称不能为空或只包含空格';
     }
     
-    if (name.length > 50) {
-      return '供应商名称不能超过50个字符';
-    }
-    
-    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-      return '供应商名称只能包含字母、数字、下划线和连字符';
+    if (name.length > 100) {
+      return '供应商名称不能超过100个字符';
     }
     
     return null;
   },
 
   validateDisplayName(displayName) {
-    if (!displayName || typeof displayName !== 'string') {
-      return '显示名称不能为空';
+    // 允许空值，表示可选
+    if (displayName === null || displayName === undefined || displayName === '') {
+      return null;
     }
     
-    if (displayName.trim().length < 1) {
-      return '显示名称不能为空';
+    if (typeof displayName !== 'string') {
+      return '显示名称必须是字符串';
     }
     
     if (displayName.length > 100) {
@@ -35,9 +32,9 @@ const validator = {
     return null;
   },
 
-  validateUrl(url) {
+  validateUrl(url, required = true) {
     if (!url || typeof url !== 'string') {
-      return 'URL不能为空';
+      return required ? 'URL不能为空' : null;
     }
     
     try {

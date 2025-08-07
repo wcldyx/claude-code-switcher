@@ -48,10 +48,16 @@ class WindowsSupport {
     
     return new Promise((resolve, reject) => {
       const env = {
-        ...process.env,
-        ANTHROPIC_BASE_URL: config.baseUrl,
-        ANTHROPIC_AUTH_TOKEN: config.authToken
+        ...process.env
       };
+
+      // 根据认证模式设置不同的环境变量
+      if (config.authMode === 'oauth_token') {
+        env.CLAUDE_CODE_OAUTH_TOKEN = config.authToken;
+      } else {
+        env.ANTHROPIC_BASE_URL = config.baseUrl;
+        env.ANTHROPIC_AUTH_TOKEN = config.authToken;
+      }
 
       const args = [...launchArgs];
       const child = spawn('claude', args, {
@@ -75,14 +81,19 @@ class WindowsSupport {
   }
 
   static createBatchScript(config, launchArgs = []) {
-    const commands = [
-      `@echo off`,
-      `set ANTHROPIC_BASE_URL=${config.baseUrl}`,
-      `set ANTHROPIC_AUTH_TOKEN=${config.authToken}`,
-      `echo 环境变量已设置，正在启动 Claude Code...`,
-      `claude ${launchArgs.join(' ')}`,
-      `echo Claude Code 已退出`
-    ];
+    const commands = [`@echo off`];
+    
+    // 根据认证模式设置不同的环境变量
+    if (config.authMode === 'oauth_token') {
+      commands.push(`set CLAUDE_CODE_OAUTH_TOKEN=${config.authToken}`);
+    } else {
+      commands.push(`set ANTHROPIC_BASE_URL=${config.baseUrl}`);
+      commands.push(`set ANTHROPIC_AUTH_TOKEN=${config.authToken}`);
+    }
+    
+    commands.push(`echo 环境变量已设置，正在启动 Claude Code...`);
+    commands.push(`claude ${launchArgs.join(' ')}`);
+    commands.push(`echo Claude Code 已退出`);
     
     return commands.join('\r\n');
   }

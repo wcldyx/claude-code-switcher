@@ -94,6 +94,126 @@ class ProviderAdder {
   async interactive() {
     console.log(UIHelper.createTitle('添加新供应商', UIHelper.icons.add));
     console.log();
+    console.log(UIHelper.createTooltip('选择供应商类型或手动配置'));
+    console.log();
+    
+    // 设置 ESC 键监听
+    const escListener = this.createESCListener(() => {
+      Logger.info('取消添加供应商');
+      // 返回供应商选择界面
+      const { switchCommand } = require('./switch');
+      switchCommand();
+    }, '取消添加');
+
+    try {
+      // 首先选择是否使用预设配置
+      const typeAnswer = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'providerType',
+          message: '选择供应商类型:',
+          choices: [
+            { name: '🔒 官方 Claude Code (OAuth)', value: 'official_oauth' },
+            { name: '⚙️ 自定义配置', value: 'custom' }
+          ],
+          default: 'custom'
+        }
+      ]);
+
+      // 移除 ESC 键监听
+      this.removeESCListener(escListener);
+
+      if (typeAnswer.providerType === 'official_oauth') {
+        return await this.addOfficialOAuthProvider();
+      } else {
+        return await this.addCustomProvider();
+      }
+    } catch (error) {
+      // 移除 ESC 键监听
+      this.removeESCListener(escListener);
+      throw error;
+    }
+  }
+
+  async addOfficialOAuthProvider() {
+    console.log(UIHelper.createTitle('添加官方 OAuth 供应商', UIHelper.icons.add));
+    console.log();
+    console.log(UIHelper.createTooltip('配置官方 Claude Code OAuth 认证'));
+    console.log();
+    
+    // 设置 ESC 键监听
+    const escListener = this.createESCListener(() => {
+      Logger.info('取消添加供应商');
+      // 返回供应商选择界面
+      const { switchCommand } = require('./switch');
+      switchCommand();
+    }, '取消添加');
+
+    try {
+      const answers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'name',
+          message: '请输入供应商名称 (用于命令行):',
+          default: 'claude-official',
+          validate: (input) => {
+            const error = validator.validateName(input);
+            if (error) return error;
+            return true;
+          }
+        },
+        {
+          type: 'input',
+          name: 'displayName',
+          message: '请输入供应商显示名称:',
+          default: 'Claude Code 官方 (OAuth)',
+          validate: (input) => {
+            const error = validator.validateDisplayName(input);
+            if (error) return error;
+            return true;
+          }
+        },
+        {
+          type: 'password',
+          name: 'authToken',
+          message: '请输入 OAuth Token (sk-ant-oat01-...):',
+          validate: (input) => {
+            if (!input || !input.startsWith('sk-ant-oat01-')) {
+              return '请输入有效的 OAuth Token (格式: sk-ant-oat01-...)';
+            }
+            const error = validator.validateToken(input);
+            if (error) return error;
+            return true;
+          },
+          mask: '*'
+        },
+        {
+          type: 'confirm',
+          name: 'setAsDefault',
+          message: '是否设置为默认供应商?',
+          default: true
+        }
+      ]);
+
+      // 移除 ESC 键监听
+      this.removeESCListener(escListener);
+      
+      // 使用官方 OAuth 配置
+      await this.saveProvider({
+        ...answers,
+        authMode: 'oauth_token',
+        baseUrl: null // OAuth 模式不需要 baseUrl
+      });
+    } catch (error) {
+      // 移除 ESC 键监听
+      this.removeESCListener(escListener);
+      throw error;
+    }
+  }
+
+  async addCustomProvider() {
+    console.log(UIHelper.createTitle('添加自定义供应商', UIHelper.icons.add));
+    console.log();
     console.log(UIHelper.createTooltip('请填写供应商配置信息'));
     console.log();
     
@@ -115,18 +235,27 @@ class ProviderAdder {
             const error = validator.validateName(input);
             if (error) return error;
             return true;
-          },
-          transformer: (input) => input.toLowerCase()
+          }
         },
         {
           type: 'input',
           name: 'displayName',
-          message: '请输入供应商显示名称:',
+          message: '请输入供应商显示名称 (可选，默认为供应商名称):',
           validate: (input) => {
             const error = validator.validateDisplayName(input);
             if (error) return error;
             return true;
           }
+        },
+        {
+          type: 'list',
+          name: 'authMode',
+          message: '选择认证模式:',
+          choices: [
+            { name: 'API Token (ANTHROPIC_AUTH_TOKEN)', value: 'api_token' },
+            { name: 'OAuth Token (CLAUDE_CODE_OAUTH_TOKEN)', value: 'oauth_token' }
+          ],
+          default: 'api_token'
         },
         {
           type: 'input',
@@ -136,7 +265,8 @@ class ProviderAdder {
             const error = validator.validateUrl(input);
             if (error) return error;
             return true;
-          }
+          },
+          when: (answers) => answers.authMode === 'api_token'
         },
         {
           type: 'password',
@@ -253,20 +383,25 @@ class ProviderAdder {
       }
 
       await this.configManager.addProvider(answers.name, {
-        displayName: answers.displayName,
+        displayName: answers.displayName || answers.name,
         baseUrl: answers.baseUrl,
         authToken: answers.authToken,
+        authMode: answers.authMode,
         launchArgs: launchArgs,
         setAsDefault: answers.setAsDefault
       });
 
-      Logger.success(`供应商 '${answers.displayName}' 添加成功！`);
+      const finalDisplayName = answers.displayName || answers.name;
+      Logger.success(`供应商 '${finalDisplayName}' 添加成功！`);
       
       // 显示添加的配置信息
       console.log(chalk.blue('\n配置详情:'));
       console.log(chalk.gray(`  名称: ${answers.name}`));
-      console.log(chalk.gray(`  显示名称: ${answers.displayName}`));
-      console.log(chalk.gray(`  基础URL: ${answers.baseUrl}`));
+      console.log(chalk.gray(`  显示名称: ${finalDisplayName}`));
+      console.log(chalk.gray(`  认证模式: ${answers.authMode === 'oauth_token' ? 'OAuth Token' : 'API Token'}`));
+      if (answers.baseUrl) {
+        console.log(chalk.gray(`  基础URL: ${answers.baseUrl}`));
+      }
       console.log(chalk.gray(`  Token: ${validator.maskToken(answers.authToken)}`));
       if (launchArgs.length > 0) {
         console.log(chalk.gray(`  启动参数: ${launchArgs.join(' ')}`));

@@ -110,13 +110,16 @@ describe('validator', () => {
       expect(validator.validateName('test_provider')).toBeNull();
       expect(validator.validateName('test-provider')).toBeNull();
       expect(validator.validateName('test123')).toBeNull();
+      expect(validator.validateName('Claude Official')).toBeNull();
+      expect(validator.validateName('我的Claude供应商')).toBeNull();
+      expect(validator.validateName('Provider@Company.com')).toBeNull();
+      expect(validator.validateName('🚀 Fast Provider')).toBeNull();
     });
 
     test('should reject invalid names', () => {
       expect(validator.validateName('')).toBe('供应商名称不能为空');
-      expect(validator.validateName('a')).toBe('供应商名称至少需要2个字符');
-      expect(validator.validateName('a'.repeat(51))).toBe('供应商名称不能超过50个字符');
-      expect(validator.validateName('test provider')).toBe('供应商名称只能包含字母、数字、下划线和连字符');
+      expect(validator.validateName('   ')).toBe('供应商名称不能为空或只包含空格');
+      expect(validator.validateName('a'.repeat(101))).toBe('供应商名称不能超过100个字符');
     });
   });
 

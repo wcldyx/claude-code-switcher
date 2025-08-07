@@ -56,6 +56,7 @@ class ConfigManager {
       displayName: providerConfig.displayName || name,
       baseUrl: providerConfig.baseUrl,
       authToken: providerConfig.authToken,
+      authMode: providerConfig.authMode || 'api_token',
       launchArgs: providerConfig.launchArgs || [],
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
