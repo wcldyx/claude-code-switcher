@@ -67,7 +67,7 @@ registry.registerLazy('current', async () => {
 });
 
 registry.registerLazy('edit', async () => {
-  const { editCommand } = require('./commands/switch');
+  const { editCommand } = require('./commands/edit');
   return editCommand;
 });
 
