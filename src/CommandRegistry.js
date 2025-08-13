@@ -66,4 +66,9 @@ registry.registerLazy('current', async () => {
   return currentCommand;
 });
 
+registry.registerLazy('edit', async () => {
+  const { editCommand } = require('./commands/switch');
+  return editCommand;
+});
+
 module.exports = { CommandRegistry, registry };

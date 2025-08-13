@@ -77,5 +77,19 @@ program
     }
   });
 
+// Edit command
+program
+  .command('edit')
+  .argument('[provider]', '要编辑的供应商名称')
+  .description('编辑供应商配置')
+  .action(async (provider) => {
+    try {
+      await registry.executeCommand('edit', provider);
+    } catch (error) {
+      console.error(chalk.red('❌ 编辑失败:'), error.message);
+      process.exit(1);
+    }
+  });
+
 // Parse arguments
 program.parse();

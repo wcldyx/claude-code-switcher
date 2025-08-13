@@ -5,6 +5,7 @@ const { WindowsSupport } = require('../utils/windows-support');
 const { Logger } = require('../utils/logger');
 const { UIHelper } = require('../utils/ui-helper');
 const { BaseCommand } = require('./BaseCommand');
+const { validator } = require('../utils/validator');
 
 class EnvSwitcher extends BaseCommand {
   constructor() {
@@ -819,4 +820,15 @@ async function switchCommand(providerName) {
   }
 }
 
-module.exports = { switchCommand, EnvSwitcher };
+async function editCommand(providerName) {
+  const switcher = new EnvSwitcher();
+  
+  try {
+    await switcher.editProvider(providerName);
+  } finally {
+    // 确保资源清理
+    switcher.destroy();
+  }
+}
+
+module.exports = { switchCommand, editCommand, EnvSwitcher };
