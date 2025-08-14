@@ -63,6 +63,14 @@ class WindowsSupport {
         env.ANTHROPIC_AUTH_TOKEN = config.authToken;
       }
 
+      // 模型环境变量
+      if (config.models && config.models.primary) {
+        env.ANTHROPIC_MODEL = config.models.primary;
+      }
+      if (config.models && config.models.smallFast) {
+        env.ANTHROPIC_SMALL_FAST_MODEL = config.models.smallFast;
+      }
+
       const args = [...launchArgs];
       const child = spawn('claude', args, {
         stdio: 'inherit',
@@ -97,6 +105,14 @@ class WindowsSupport {
       // auth_token 模式或默认模式
       commands.push(`set ANTHROPIC_BASE_URL=${config.baseUrl}`);
       commands.push(`set ANTHROPIC_AUTH_TOKEN=${config.authToken}`);
+    }
+    
+    // 模型环境变量
+    if (config.models && config.models.primary) {
+      commands.push(`set ANTHROPIC_MODEL=${config.models.primary}`);
+    }
+    if (config.models && config.models.smallFast) {
+      commands.push(`set ANTHROPIC_SMALL_FAST_MODEL=${config.models.smallFast}`);
     }
     
     commands.push(`echo 环境变量已设置，正在启动 Claude Code...`);
