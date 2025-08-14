@@ -5,6 +5,7 @@ const { WindowsSupport } = require('../utils/windows-support');
 const { Logger } = require('../utils/logger');
 const { UIHelper } = require('../utils/ui-helper');
 const { BaseCommand } = require('./BaseCommand');
+const { validator } = require('../utils/validator');
 
 class EnvSwitcher extends BaseCommand {
   constructor() {
