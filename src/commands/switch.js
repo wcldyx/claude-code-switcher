@@ -820,4 +820,15 @@ async function switchCommand(providerName) {
   }
 }
 
-module.exports = { switchCommand, EnvSwitcher };
+async function editCommand(providerName) {
+  const switcher = new EnvSwitcher();
+  
+  try {
+    await switcher.editProvider(providerName);
+  } finally {
+    // 确保资源清理
+    switcher.destroy();
+  }
+}
+
+module.exports = { switchCommand, editCommand, EnvSwitcher };
