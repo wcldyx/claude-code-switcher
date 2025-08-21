@@ -8,8 +8,17 @@
       "Bash(timeout:*)",
       "Bash(npm test:*)",
       "Bash(mv:*)",
-      "Bash(npm:*)"
+      "Bash(npm:*)",
+      "Bash(echo $PATH)",
+      "Bash(where cc)",
+      "Bash(cc:*)",
+      "Bash(tar:*)",
+      "Bash(./node_modules/.bin/cc:*)",
+      "Bash(npx cc:*)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "G:\\tmp"
+    ]
   }
 }

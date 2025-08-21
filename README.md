@@ -26,17 +26,46 @@
 
 ## 🚀 安装
 
-### 克隆仓库
+### 从npm全局安装（推荐）
 
 ```bash
-git clone <repository-url>
-cd claude-code-switcher
-npm install
+# 安装最新版本
+npm install -g @wcldyx/claude-code-switcher
+
+# 或指定版本安装
+npm install -g @wcldyx/claude-code-switcher@latest
 ```
 
-### 全局安装
+安装完成后，可以直接使用 `cc` 命令：
+```bash
+cc --help
+```
+
+### 无需安装直接使用
 
 ```bash
+# 使用npx直接运行，无需安装
+npx @wcldyx/claude-code-switcher
+```
+
+### 本地项目安装
+
+```bash
+# 在项目中本地安装
+npm install @wcldyx/claude-code-switcher
+
+# 使用方式
+npx cc
+# 或
+./node_modules/.bin/cc
+```
+
+### 开发者安装（克隆源码）
+
+```bash
+git clone https://github.com/wcldyx/claude-code-switcher.git
+cd claude-code-switcher
+npm install
 npm install -g .
 ```
 
