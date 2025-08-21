@@ -7,7 +7,8 @@
       "Bash(rm:*)",
       "Bash(timeout:*)",
       "Bash(npm test:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(npm:*)"
     ],
     "deny": []
   }

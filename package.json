@@ -1,21 +1,49 @@
 {
   "name": "claude-code-switcher",
   "version": "1.0.0",
-  "description": "Claude Code环境变量快速切换工具",
+  "description": "Claude Code环境变量快速切换工具 - A powerful CLI tool for switching Claude Code environment configurations and API providers",
   "main": "src/index.js",
   "bin": {
     "cc": "./bin/cc.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "node bin/cc.js",
     "dev": "nodemon bin/cc.js",
     "test": "jest",
     "build": "echo 'No build needed'",
-    "prepare": "echo 'Preparing package'"
+    "prepare": "echo 'Preparing package'",
+    "prepublishOnly": "npm test"
   },
-  "keywords": ["claude", "ai", "cli", "environment", "switcher", "windows"],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "cli",
+    "environment",
+    "switcher",
+    "config",
+    "api",
+    "provider",
+    "anthropic",
+    "command-line",
+    "tool"
+  ],
   "author": "Developer",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wcldyx/claude-code-switcher.git"
+  },
+  "bugs": {
+    "url": "https://github.com/wcldyx/claude-code-switcher/issues"
+  },
+  "homepage": "https://github.com/wcldyx/claude-code-switcher#readme",
   "dependencies": {
     "commander": "^9.4.1",
     "inquirer": "^8.2.6",
