@@ -23,6 +23,40 @@ describe('ConfigManager', () => {
     }
   });
 
+  describe('load', () => {
+    test('should recover when config file contains non-object JSON value', async () => {
+      const fs = require('fs-extra');
+      await fs.writeFile(testConfigPath, 'null');
+
+      configManager.isLoaded = false;
+      configManager.config = null;
+      configManager.lastModified = null;
+      configManager.loadPromise = null;
+
+      const config = await configManager.load(true);
+      expect(config).toEqual(configManager.getDefaultConfig());
+
+      const persisted = await fs.readJSON(testConfigPath);
+      expect(persisted).toEqual(configManager.getDefaultConfig());
+    });
+
+    test('should recover when config file contains array JSON value', async () => {
+      const fs = require('fs-extra');
+      await fs.writeFile(testConfigPath, '[]');
+
+      configManager.isLoaded = false;
+      configManager.config = null;
+      configManager.lastModified = null;
+      configManager.loadPromise = null;
+
+      const config = await configManager.load(true);
+      expect(config).toEqual(configManager.getDefaultConfig());
+
+      const persisted = await fs.readJSON(testConfigPath);
+      expect(persisted).toEqual(configManager.getDefaultConfig());
+    });
+  });
+
   describe('addProvider', () => {
     test('should add provider successfully', async () => {
       const result = await configManager.addProvider('test', {

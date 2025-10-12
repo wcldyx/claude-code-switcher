@@ -50,13 +50,20 @@ class ConfigManager {
   async _performLoad() {
     try {
       if (await fs.pathExists(this.configPath)) {
-        const stat = await fs.stat(this.configPath);
         const data = await fs.readJSON(this.configPath);
-        this.config = { ...this.getDefaultConfig(), ...data };
+
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+          // 配置文件被写成非对象内容时，重置为默认配置
+          this.config = this.getDefaultConfig();
+          await this._performSave();
+        } else {
+          this.config = { ...this.getDefaultConfig(), ...data };
+        }
 
         // 迁移旧的认证模式
         this._migrateAuthModes();
 
+        const stat = await fs.stat(this.configPath);
         this.lastModified = stat.mtime;
       } else {
         this.config = this.getDefaultConfig();
