@@ -1,10 +1,6 @@
 # Claude Code 环境切换器
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node Version](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
-[![Platform Support](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://nodejs.org/)
-
-一个强大的命令行工具，用于快速切换 Claude Code 的不同环境配置和 API 供应商。支持多种认证模式、自定义启动参数，以及直观的交互式界面。
+一键切换 Claude Code 的 API 供应商,让你轻松管理多个账号配置。
 
 ## 📸 界面预览
 
@@ -14,258 +10,136 @@
 ### 添加供应商界面
 ![添加供应商界面](./docs/images/add-provider.png)
 
-## ✨ 特性
+## 💡 这个工具是干什么的？
 
-- 🔄 **快速切换** - 在不同的 Claude API 供应商间快速切换
-- 🔐 **多种认证** - 支持 API Token 和 OAuth Token 两种认证模式
-- 🎯 **交互式界面** - 美观的命令行界面，支持 ESC 键快速导航
-- ⚙️ **启动参数配置** - 自定义 Claude Code 启动参数
-- 📋 **供应商管理** - 添加、删除、编辑供应商配置
-- 🚀 **高性能** - 内存缓存机制，93.8%性能提升
-- 🛡️ **资源安全** - 自动资源清理，防止内存泄漏
+如果你在使用 Claude Code 时遇到这些问题：
 
-## 🚀 安装
+- ✅ 需要在多个 API 供应商之间切换
+- ✅ 使用不同的账号或 Token
+- ✅ 需要配置第三方代理服务
+- ✅ 想要快速保存和切换多套配置
 
-### 从npm全局安装（推荐）
+那这个工具就是为你准备的！只需要一条命令 `cc`，就能快速切换环境。
+
+## 🚀 快速开始
+
+### 第一步：安装工具
+
+打开终端(命令行),运行：
 
 ```bash
-# 安装最新版本
 npm install -g @wcldyx/claude-code-switcher
-
-# 或指定版本安装
-npm install -g @wcldyx/claude-code-switcher@latest
 ```
 
-安装完成后，可以直接使用 `cc` 命令：
+### 第二步：添加你的第一个供应商
+
 ```bash
-cc --help
+cc add
 ```
 
-### 无需安装直接使用
+根据提示输入：
+1. **名称**：给这个配置起个名字,比如 "官方账号"、"代理服务" 等
+2. **认证方式**：选择你使用的 Token 类型
+3. **Token**：粘贴你的 API Token
+4. **基础 URL**（可选）：如果使用第三方服务需要填写
+
+### 第三步：开始使用
 
 ```bash
-# 使用npx直接运行，无需安装
-npx @wcldyx/claude-code-switcher
-```
-
-### 本地项目安装
-
-```bash
-# 在项目中本地安装
-npm install @wcldyx/claude-code-switcher
-
-# 使用方式
-npx cc
-# 或
-./node_modules/.bin/cc
-```
-
-### 开发者安装（克隆源码）
-
-```bash
-git clone https://github.com/wcldyx/claude-code-switcher.git
-cd claude-code-switcher
-npm install
-npm install -g .
-```
-
-## 📖 使用方法
-
-### 基本命令
-
-```bash
-# 显示供应商选择界面
 cc
+```
 
-# 直接切换到指定供应商
-cc <供应商名称>
+用方向键选择要使用的供应商,按回车确认,工具会自动启动 Claude Code！
 
-# 添加新供应商
+## 📖 常用命令
+
+```bash
+cc              # 打开选择界面,切换供应商
+cc add          # 添加新的供应商配置
+cc list         # 查看所有已保存的供应商
+cc current      # 查看当前正在使用哪个供应商
+cc edit         # 修改某个供应商的配置
+cc remove       # 删除不需要的供应商
+```
+
+## 🎯 使用场景示例
+
+### 场景1：工作和个人账号切换
+
+```bash
+# 上班时使用公司账号
+cc 公司账号
+
+# 下班后切换到个人账号
+cc 个人账号
+```
+
+### 场景2：使用第三方服务
+
+有些第三方服务提供 Claude API 代理,你可以这样配置：
+
+```bash
+cc add
+# 输入名称: 第三方服务
+# 选择认证方式: API 密钥模式
+# 输入 API 密钥: 粘贴你的密钥
+# 输入基础 URL: https://api.third-party.com
+```
+
+### 场景3：临时测试新服务
+
+```bash
+# 添加测试配置
 cc add
 
-# 列出所有供应商
-cc list
+# 试用一下
+cc 测试服务
 
-# 显示当前配置
-cc current
-
-# 删除供应商
-cc remove [供应商名称]
-
-# 编辑供应商
-cc edit [供应商名称]
+# 不好用就删掉
+cc remove 测试服务
 ```
 
-### 交互式操作
+## ⚙️ 认证方式说明
 
-启动程序后，使用方向键选择选项，回车确认：
+添加供应商时,会让你选择认证方式,这里简单说明：
 
-- 使用 `ESC` 键快速返回上级菜单
-- 使用 `Tab` 键在选项间切换
-- 使用 `Ctrl+C` 退出程序
+**1. OAuth 令牌模式** (最常用)
+- 适用于官方 Claude Code
+- Token 格式: `sk-ant-oat01-...`
+- 只需要填 Token,不需要填 URL
 
-## ⚙️ 配置说明
+**2. API 密钥模式**
+- 适用于第三方服务商
+- 需要填写 API 密钥和服务商提供的 URL
 
-### 支持的认证模式
+**3. 认证令牌模式**
+- 适用于某些第三方服务商
+- 需要填写认证令牌和服务商提供的 URL
 
-1. **API 密钥模式**
-
-   - 环境变量：`ANTHROPIC_API_KEY`
-   - 需要配置：基础 URL + API 密钥
-   - 适用于：第三方服务商，使用 X-Api-Key 头认证
-
-2. **认证令牌模式**
-
-   - 环境变量：`ANTHROPIC_AUTH_TOKEN`
-   - 需要配置：基础 URL + 认证令牌
-   - 适用于：第三方服务商，使用 Authorization Bearer 头认证
-
-3. **OAuth 令牌模式**
-   - 环境变量：`CLAUDE_CODE_OAUTH_TOKEN`
-   - 仅需配置：OAuth 令牌 (格式: sk-ant-oat01-...)
-   - 适用于：官方 Claude Code
-
-### 配置文件位置
-
-配置文件存储在用户主目录：
-
-```
-~/.cc-config.json
-```
-
-### 配置文件结构
-
-```json
-{
-  "version": "1.0.0",
-  "currentProvider": "provider-name",
-  "providers": {
-    "provider-name": {
-      "name": "provider-name",
-      "displayName": "显示名称",
-      "baseUrl": "https://api.example.com",
-      "authToken": "your-token-here",
-      "authMode": "api_key",
-      "launchArgs": ["--arg1", "--arg2"],
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "lastUsed": "2024-01-01T00:00:00.000Z",
-      "current": true
-    }
-  }
-}
-```
-
-## 🔧 开发
-
-### 项目结构
-
-```
-claude-code-switcher/
-├── bin/
-│   └── cc.js                 # 命令行入口
-├── src/
-│   ├── commands/
-│   │   ├── BaseCommand.js    # 基础命令类
-│   │   ├── add.js           # 添加供应商
-│   │   ├── current.js       # 显示当前配置
-│   │   ├── list.js          # 列出供应商
-│   │   ├── remove.js        # 删除供应商
-│   │   └── switch.js        # 切换供应商
-│   ├── utils/
-│   │   ├── error-handler.js # 错误处理
-│   │   ├── logger.js        # 日志工具
-│   │   ├── storage.js       # 存储工具
-│   │   ├── ui-helper.js     # UI助手
-│   │   ├── validator.js     # 验证工具
-│   │   └── windows-support.js # Windows支持
-│   ├── CommandRegistry.js   # 命令注册中心
-│   ├── config.js           # 配置管理
-│   └── index.js            # 主入口
-├── tests/
-│   └── config.test.js      # 测试文件
-└── package.json
-```
-
-### 性能优化特性
-
-- **内存缓存机制** - ConfigManager 实现配置缓存，避免频繁文件 IO
-- **资源自动清理** - BaseCommand 统一管理 ESC 键监听器，防止内存泄漏
-- **懒加载模式** - CommandRegistry 实现命令懒加载，提升启动性能
-- **并行处理** - 使用 Promise.all 优化异步操作
-- **代码复用** - 消除 300+行重复代码
-
-### 运行测试
-
-```bash
-# 运行所有测试
-npm test
-
-# 开发模式
-npm run dev
-```
-
-## 📝 更新日志
-
-### v1.0.0 (2024-08-07)
-
-- ✨ 初始版本发布
-- 🚀 实现供应商管理功能
-- ⚡ 性能优化，配置加载速度提升 93.8%
-- 🛡️ 添加资源自动清理机制
-- 🔧 支持自定义启动参数
-- 🎨 美化交互式界面
-
-## 🤝 贡献
-
-欢迎提交 Pull Request 和 Issue！
-
-1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
-
-## 📋 系统要求
-
-- **Node.js**: >= 14.0.0
-- **操作系统**: Windows, macOS, Linux
-- **终端**: 支持 ANSI 颜色和交互式输入
-
-## 🔒 安全说明
-
-- 认证 Token 以加密形式存储在配置文件中
-- 支持 Token 掩码显示，保护敏感信息
-- 配置文件仅当前用户可读写
+> 💡 不确定选哪个？看你的 Token 是什么格式,或者咨询你的服务商。
 
 ## ❓ 常见问题
 
-### Q: 如何重置所有配置？
+**Q: 我的 Token 存在哪里,安全吗？**
+A: 配置保存在你的电脑上 `~/.cc-config.json`,只有你能访问。Token 会被加密存储。
 
-A: 删除配置文件 `~/.cc-config.json` 即可重置
+**Q: 如何重新来过？**
+A: 删除配置文件 `~/.cc-config.json` 就会清空所有配置。
 
-### Q: 支持哪些启动参数？
+**Q: 可以导出配置到其他电脑吗？**
+A: 可以！复制 `~/.cc-config.json` 文件到新电脑的相同位置即可。
 
-A: 支持 Claude Code 的所有标准启动参数，可在添加供应商时配置
+**Q: 按 ESC 键没反应？**
+A: 使用 `Ctrl+C` 也可以退出程序。
 
-### Q: 如何备份配置？
+**Q: 需要什么系统？**
+A: Windows、macOS、Linux 都支持。需要安装 Node.js 14 或更高版本。
 
-A: 复制 `~/.cc-config.json` 文件即可备份所有配置
+## 🆘 遇到问题？
 
-### Q: ESC 键不工作怎么办？
-
-A: 确保终端支持原始模式输入，或使用 Ctrl+C 退出
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 🙏 致谢
-
-- [Commander.js](https://github.com/tj/commander.js/) - 命令行参数解析
-- [Inquirer.js](https://github.com/SBoudrias/Inquirer.js/) - 交互式命令行界面
-- [Chalk](https://github.com/chalk/chalk) - 终端颜色输出
-- [fs-extra](https://github.com/jprichardson/node-fs-extra) - 文件系统增强
+1. 查看 [常见问题](https://github.com/wcldyx/claude-code-switcher/issues)
+2. 提交 [新问题](https://github.com/wcldyx/claude-code-switcher/issues/new)
 
 ---
 
-**Claude Code Switcher** - 让环境切换变得简单高效 🚀
+**Claude Code Switcher** - 让环境切换变得简单 🚀
