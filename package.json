@@ -18,7 +18,8 @@
     "test": "jest",
     "build": "echo 'No build needed'",
     "prepare": "echo 'Preparing package'",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "release": "npm version patch && npm publish --access public"
   },
   "keywords": [
     "claude",
