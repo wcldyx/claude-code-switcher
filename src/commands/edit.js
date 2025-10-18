@@ -29,18 +29,28 @@ class ProviderEditor extends BaseCommand {
             return;
         }
     } else {
-        const { selectedProviderName } = await inquirer.prompt([
-            {
-                type: 'list',
-                name: 'selectedProviderName',
-                message: '请选择要编辑的供应商:',
-                choices: [
-                    ...providers.map(p => ({ name: p.displayName || p.name, value: p.name })),
-                    new inquirer.Separator(),
-                    { name: '取消', value: null },
-                ],
-            },
-        ]);
+        let selection;
+        try {
+          selection = await this.prompt([
+              {
+                  type: 'list',
+                  name: 'selectedProviderName',
+                  message: '请选择要编辑的供应商:',
+                  choices: [
+                      ...providers.map(p => ({ name: p.displayName || p.name, value: p.name })),
+                      new inquirer.Separator(),
+                      { name: '取消', value: null },
+                  ],
+              },
+          ]);
+        } catch (error) {
+          if (this.isEscCancelled(error)) {
+            return;
+          }
+          throw error;
+        }
+
+        const { selectedProviderName } = selection;
 
         if (!selectedProviderName) {
             Logger.info('操作已取消。');
@@ -61,64 +71,76 @@ class ProviderEditor extends BaseCommand {
     }, '取消编辑');
 
     try {
-      const answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'displayName',
-          message: '供应商显示名称:',
-          default: providerToEdit.displayName,
-          validate: (input) => validator.validateDisplayName(input) || true,
-        },
-        {
-          type: 'list',
-          name: 'authMode',
-          message: '认证模式:',
-          choices: [
-            { name: '🔑 API密钥模式 (ANTHROPIC_API_KEY)', value: 'api_key' },
-            { name: '🔐 认证令牌模式 (ANTHROPIC_AUTH_TOKEN)', value: 'auth_token' },
-            { name: '🌐 OAuth令牌模式 (CLAUDE_CODE_OAUTH_TOKEN)', value: 'oauth_token' },
-          ],
-          default: providerToEdit.authMode,
-        },
-        {
-          type: 'input',
-          name: 'baseUrl',
-          message: 'API基础URL:',
-          default: providerToEdit.baseUrl,
-          validate: (input) => validator.validateUrl(input) || true,
-          when: (answers) => answers.authMode === 'api_key' || answers.authMode === 'auth_token',
-        },
-        {
-          type: 'input',
-          name: 'authToken',
-          message: (answers) => {
-            switch (answers.authMode) {
-              case 'api_key': return 'API密钥 (ANTHROPIC_API_KEY):';
-              case 'auth_token': return '认证令牌 (ANTHROPIC_AUTH_TOKEN):';
-              case 'oauth_token': return 'OAuth令牌 (CLAUDE_CODE_OAUTH_TOKEN):';
-              default: return '认证令牌:';
-            }
+      let answers;
+      try {
+        answers = await this.prompt([
+          {
+            type: 'input',
+            name: 'displayName',
+            message: '供应商显示名称:',
+            default: providerToEdit.displayName,
+            validate: (input) => validator.validateDisplayName(input) || true,
           },
-          default: providerToEdit.authToken,
-          validate: (input) => validator.validateToken(input) || true,
-        },
-        {
-            type: 'checkbox',
-            name: 'launchArgs',
-            message: '启动参数:',
-            choices: validator.getAvailableLaunchArgs().map(arg => ({
-              name: `${arg.name} - ${arg.description}`,
-              value: arg.name,
-              checked: providerToEdit.launchArgs && providerToEdit.launchArgs.includes(arg.name),
-            })),
-        },
-      ]);
+          {
+            type: 'list',
+            name: 'authMode',
+            message: '认证模式:',
+            choices: [
+              { name: '🔑 API密钥模式 (ANTHROPIC_API_KEY)', value: 'api_key' },
+              { name: '🔐 认证令牌模式 (ANTHROPIC_AUTH_TOKEN)', value: 'auth_token' },
+              { name: '🌐 OAuth令牌模式 (CLAUDE_CODE_OAUTH_TOKEN)', value: 'oauth_token' },
+            ],
+            default: providerToEdit.authMode,
+          },
+          {
+            type: 'input',
+            name: 'baseUrl',
+            message: 'API基础URL:',
+            default: providerToEdit.baseUrl,
+            validate: (input) => validator.validateUrl(input) || true,
+            when: (answers) => answers.authMode === 'api_key' || answers.authMode === 'auth_token',
+          },
+          {
+            type: 'input',
+            name: 'authToken',
+            message: (answers) => {
+              switch (answers.authMode) {
+                case 'api_key': return 'API密钥 (ANTHROPIC_API_KEY):';
+                case 'auth_token': return '认证令牌 (ANTHROPIC_AUTH_TOKEN):';
+                case 'oauth_token': return 'OAuth令牌 (CLAUDE_CODE_OAUTH_TOKEN):';
+                default: return '认证令牌:';
+              }
+            },
+            default: providerToEdit.authToken,
+            validate: (input) => validator.validateToken(input) || true,
+          },
+          {
+              type: 'checkbox',
+              name: 'launchArgs',
+              message: '启动参数:',
+              choices: validator.getAvailableLaunchArgs().map(arg => ({
+                name: `${arg.label || arg.name} (${arg.name})${arg.description ? ' - ' + arg.description : ''}`,
+                value: arg.name,
+                checked: providerToEdit.launchArgs && providerToEdit.launchArgs.includes(arg.name),
+              })),
+          },
+        ]);
+      } catch (error) {
+        this.removeESCListener(escListener);
+        if (this.isEscCancelled(error)) {
+          return;
+        }
+        throw error;
+      }
 
       this.removeESCListener(escListener);
       await this.saveProvider(providerToEdit.name, answers);
 
     } catch (error) {
       this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
+      }
       throw error;
     }
   }
@@ -147,6 +169,9 @@ class ProviderEditor extends BaseCommand {
       return await registry.executeCommand('switch');
 
     } catch (error) {
+      if (this.isEscCancelled(error)) {
+        return;
+      }
       Logger.error(`更新供应商失败: ${error.message}`);
       throw error;
     }
@@ -155,7 +180,15 @@ class ProviderEditor extends BaseCommand {
 
 async function editCommand(providerName) {
   const editor = new ProviderEditor();
-  await editor.interactive(providerName);
+  try {
+    await editor.interactive(providerName);
+  } catch (error) {
+    if (!editor.isEscCancelled(error)) {
+      Logger.error(`编辑供应商失败: ${error.message}`);
+    }
+  } finally {
+    editor.destroy();
+  }
 }
 
 module.exports = { editCommand, ProviderEditor };

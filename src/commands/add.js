@@ -17,6 +17,13 @@ class ProviderAdder extends BaseCommand {
     console.log();
     console.log(UIHelper.createTooltip('选择供应商类型或手动配置'));
     console.log();
+    console.log(UIHelper.createStepIndicator(1, 3, '选择供应商类型'));
+    console.log(UIHelper.createHintLine([
+      ['↑ / ↓', '选择类型'],
+      ['Enter', '确认'],
+      ['ESC', '取消添加']
+    ]));
+    console.log();
     
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
@@ -28,7 +35,7 @@ class ProviderAdder extends BaseCommand {
 
     try {
       // 首先选择是否使用预设配置
-      const typeAnswer = await inquirer.prompt([
+      const typeAnswer = await this.prompt([
         {
           type: 'list',
           name: 'providerType',
@@ -52,6 +59,9 @@ class ProviderAdder extends BaseCommand {
     } catch (error) {
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
+      }
       throw error;
     }
   }
@@ -60,6 +70,13 @@ class ProviderAdder extends BaseCommand {
     console.log(UIHelper.createTitle('添加官方 OAuth 供应商', UIHelper.icons.add));
     console.log();
     console.log(UIHelper.createTooltip('配置官方 Claude Code OAuth 认证'));
+    console.log();
+    console.log(UIHelper.createStepIndicator(2, 3, '填写官方 OAuth 信息'));
+    console.log(UIHelper.createHintLine([
+      ['Enter', '确认输入'],
+      ['Tab', '切换字段'],
+      ['ESC', '取消添加']
+    ]));
     console.log();
     
     // 设置 ESC 键监听
@@ -71,7 +88,7 @@ class ProviderAdder extends BaseCommand {
     }, '取消添加');
 
     try {
-      const answers = await inquirer.prompt([
+      const answers = await this.prompt([
         {
           type: 'input',
           name: 'name',
@@ -127,6 +144,9 @@ class ProviderAdder extends BaseCommand {
     } catch (error) {
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
+      }
       throw error;
     }
   }
@@ -135,6 +155,13 @@ class ProviderAdder extends BaseCommand {
     console.log(UIHelper.createTitle('添加自定义供应商', UIHelper.icons.add));
     console.log();
     console.log(UIHelper.createTooltip('请填写供应商配置信息'));
+    console.log();
+    console.log(UIHelper.createStepIndicator(2, 3, '填写供应商信息'));
+    console.log(UIHelper.createHintLine([
+      ['Enter', '确认输入'],
+      ['Tab', '切换字段'],
+      ['ESC', '取消添加']
+    ]));
     console.log();
     
     // 设置 ESC 键监听
@@ -146,7 +173,7 @@ class ProviderAdder extends BaseCommand {
     }, '取消添加');
 
     try {
-      const answers = await inquirer.prompt([
+      const answers = await this.prompt([
         {
           type: 'input',
           name: 'name',
@@ -256,7 +283,7 @@ class ProviderAdder extends BaseCommand {
         }, '取消覆盖');
 
         try {
-          const overwrite = await inquirer.prompt([
+          const overwrite = await this.prompt([
             {
               type: 'confirm',
               name: 'overwrite',
@@ -286,6 +313,15 @@ class ProviderAdder extends BaseCommand {
         console.log();
         console.log(UIHelper.createTooltip('选择要使用的启动参数'));
         console.log();
+        console.log(UIHelper.createStepIndicator(3, 3, '可选: 配置启动参数'));
+        console.log(UIHelper.createHintLine([
+          ['空格', '切换选中'],
+          ['A', '全选'],
+          ['I', '反选'],
+          ['Enter', '确认选择'],
+          ['ESC', '跳过配置']
+        ]));
+        console.log();
 
         // 设置 ESC 键监听
         const escListener = this.createESCListener(() => {
@@ -294,7 +330,7 @@ class ProviderAdder extends BaseCommand {
         }, '跳过配置');
 
         try {
-          const launchArgsAnswers = await inquirer.prompt([
+          const launchArgsAnswers = await this.prompt([
             {
               type: 'checkbox',
               name: 'launchArgs',
@@ -315,7 +351,11 @@ class ProviderAdder extends BaseCommand {
           // 移除 ESC 键监听
           this.removeESCListener(escListener);
           // 如果用户按ESC，我们继续但不配置启动参数
-          launchArgs = [];
+          if (this.isEscCancelled(error)) {
+            launchArgs = [];
+          } else {
+            throw error;
+          }
         }
       }
 
@@ -327,6 +367,12 @@ class ProviderAdder extends BaseCommand {
         console.log();
         console.log(UIHelper.createTooltip('配置主模型和快速模型（可选）'));
         console.log();
+        console.log(UIHelper.createStepIndicator(3, 3, '可选: 配置模型参数'));
+        console.log(UIHelper.createHintLine([
+          ['Enter', '确认输入'],
+          ['ESC', '跳过配置']
+        ]));
+        console.log();
 
         // 设置 ESC 键监听
         const escListener = this.createESCListener(() => {
@@ -335,7 +381,7 @@ class ProviderAdder extends BaseCommand {
         }, '跳过配置');
 
         try {
-          const modelAnswers = await inquirer.prompt([
+          const modelAnswers = await this.prompt([
             {
               type: 'input',
               name: 'primaryModel',
@@ -369,8 +415,12 @@ class ProviderAdder extends BaseCommand {
           // 移除 ESC 键监听
           this.removeESCListener(escListener);
           // 如果用户按ESC，我们继续但不配置模型参数
-          primaryModel = null;
-          smallFastModel = null;
+          if (this.isEscCancelled(error)) {
+            primaryModel = null;
+            smallFastModel = null;
+          } else {
+            throw error;
+          }
         }
       }
 
@@ -423,6 +473,9 @@ class ProviderAdder extends BaseCommand {
       return await registry.executeCommand('switch');
       
     } catch (error) {
+      if (this.isEscCancelled(error)) {
+        return;
+      }
       Logger.error(`添加供应商失败: ${error.message}`);
       throw error;
     }
@@ -431,7 +484,15 @@ class ProviderAdder extends BaseCommand {
 
 async function addCommand() {
   const adder = new ProviderAdder();
-  await adder.interactive();
+  try {
+    await adder.interactive();
+  } catch (error) {
+    if (!adder.isEscCancelled(error)) {
+      Logger.error(`添加供应商失败: ${error.message}`);
+    }
+  } finally {
+    adder.destroy();
+  }
 }
 
 module.exports = { addCommand, ProviderAdder };

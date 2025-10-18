@@ -206,6 +206,22 @@ class UIHelper {
   static createESCHint(action = '返回') {
     return `${this.colors.muted('[')}${this.colors.primary('ESC')}${this.colors.muted(']')} ${this.colors.info(action)}`;
   }
+
+  // 创建提示行
+  static createHintLine(pairs = []) {
+    if (!pairs.length) {
+      return '';
+    }
+    const hints = pairs.map(([key, action]) => this.createShortcutHint(key, action));
+    return `${this.colors.muted('提示: ')}${hints.join(this.colors.muted(' · '))}`;
+  }
+
+  // 创建步骤指示
+  static createStepIndicator(current, total, label) {
+    const prefix = this.colors.muted(`步骤 ${current}/${total}`);
+    const title = label ? ` ${this.colors.info(label)}` : '';
+    return `${prefix}${title}`;
+  }
 }
 
 module.exports = { UIHelper };

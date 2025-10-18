@@ -1,3 +1,4 @@
+require('./utils/inquirer-setup');
 const { switchCommand } = require('./commands/switch');
 const { Logger } = require('./utils/logger');
 

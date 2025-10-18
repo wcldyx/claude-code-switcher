@@ -26,14 +26,22 @@ class ProviderRemover extends BaseCommand {
       }
 
       const provider = this.configManager.getProvider(providerName);
-      const confirm = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'confirm',
-          message: `确定要删除供应商 '${provider.displayName}' 吗?`,
-          default: false
+      let confirm;
+      try {
+        confirm = await this.prompt([
+          {
+            type: 'confirm',
+            name: 'confirm',
+            message: `确定要删除供应商 '${provider.displayName}' 吗?`,
+            default: false
+          }
+        ]);
+      } catch (error) {
+        if (this.isEscCancelled(error)) {
+          return;
         }
-      ]);
+        throw error;
+      }
 
       if (!confirm.confirm) {
         Logger.warning('删除操作已取消');
@@ -44,6 +52,9 @@ class ProviderRemover extends BaseCommand {
       Logger.success(`供应商 '${provider.displayName}' 已删除`);
       
     } catch (error) {
+      if (this.isEscCancelled(error)) {
+        return;
+      }
       Logger.error(`删除供应商失败: ${error.message}`);
       throw error;
     }
@@ -87,18 +98,26 @@ class ProviderRemover extends BaseCommand {
     }, '取消删除');
 
     try {
-      const answer = await inquirer.prompt([
-        {
-          type: 'list',
-          name: 'provider',
-          message: '选择要删除的供应商:',
-          choices,
-          default: defaultChoice,
-          pageSize: 10
+      let answer;
+      try {
+        answer = await this.prompt([
+          {
+            type: 'list',
+            name: 'provider',
+            message: '选择要删除的供应商:',
+            choices,
+            default: defaultChoice,
+            pageSize: 10
+          }
+        ]);
+      } catch (error) {
+        this.removeESCListener(escListener);
+        if (this.isEscCancelled(error)) {
+          return;
         }
-      ]);
+        throw error;
+      }
 
-      // 移除 ESC 键监听
       this.removeESCListener(escListener);
 
       if (answer.provider === '__CANCEL__') {
@@ -108,7 +127,6 @@ class ProviderRemover extends BaseCommand {
 
       await this.remove(answer.provider);
     } catch (error) {
-      // 移除 ESC 键监听
       this.removeESCListener(escListener);
       throw error;
     }
@@ -119,6 +137,10 @@ async function removeCommand(providerName) {
   const remover = new ProviderRemover();
   try {
     await remover.remove(providerName);
+  } catch (error) {
+    if (!remover.isEscCancelled(error)) {
+      Logger.error(`删除供应商失败: ${error.message}`);
+    }
   } finally {
     // 确保资源清理
     remover.destroy();

@@ -24,12 +24,21 @@ class EnvSwitcher extends BaseCommand {
 
   async showLaunchArgsSelection(providerName) {
     try {
+      this.clearScreen();
       const provider = await this.validateProvider(providerName);
       const availableArgs = this.getAvailableLaunchArgs();
       
       console.log(UIHelper.createTitle('启动配置', UIHelper.icons.launch));
       console.log();
       console.log(UIHelper.createCard('供应商', UIHelper.formatProvider(provider), UIHelper.icons.info));
+      console.log();
+      console.log(UIHelper.createHintLine([
+        ['空格', '切换选中'],
+        ['A', '全选'],
+        ['I', '反选'],
+        ['Enter', '启动 Claude Code'],
+        ['ESC', '返回供应商选择']
+      ]));
       console.log();
       
       // 设置 ESC 键监听
@@ -44,17 +53,32 @@ class EnvSwitcher extends BaseCommand {
           type: 'checkbox',
           name: 'selectedArgs',
           message: '选择启动参数:',
-          choices: availableArgs.map(arg => ({
-            name: `${UIHelper.colors.accent(arg.name)} - ${UIHelper.colors.muted(arg.description)}`,
-            value: arg.name,
-            checked: arg.checked || false
-          }))
+          choices: availableArgs.map(arg => {
+            const commandText = UIHelper.colors.muted(`(${arg.name})`);
+            const descriptionText = arg.description
+              ? ` ${UIHelper.colors.muted(arg.description)}`
+              : '';
+
+            return {
+              name: `${UIHelper.colors.accent(arg.label || arg.name)} ${commandText}${descriptionText}`,
+              value: arg.name,
+              checked: arg.checked || false
+            };
+          })
         }
       ];
 
-      const answers = await inquirer.prompt(choices);
+      let answers;
+      try {
+        answers = await this.prompt(choices);
+      } catch (error) {
+        this.removeESCListener(escListener);
+        if (this.isEscCancelled(error)) {
+          return;
+        }
+        throw error;
+      }
       
-      // 移除 ESC 键监听
       this.removeESCListener(escListener);
 
       // 选择参数后直接启动
@@ -67,6 +91,7 @@ class EnvSwitcher extends BaseCommand {
 
   async launchProvider(provider, selectedLaunchArgs) {
     try {
+      this.clearScreen();
       console.log(UIHelper.createTitle('正在启动', UIHelper.icons.loading));
       console.log();
       console.log(UIHelper.createCard('目标供应商', UIHelper.formatProvider(provider), UIHelper.icons.launch));
@@ -109,13 +134,15 @@ class EnvSwitcher extends BaseCommand {
   getAvailableLaunchArgs() {
     return [
       {
-        name: '--dangerously-skip-permissions',
-        description: '跳过所有权限检查（建议仅在沙盒环境中使用）',
+        name: '--continue',
+        label: '继续上次对话',
+        description: '恢复上次的对话记录',
         checked: false
       },
       {
-        name: '--continue',
-        description: '继续最近的对话',
+        name: '--dangerously-skip-permissions',
+        label: '最高权限',
+        description: '仅在沙盒环境中使用',
         checked: false
       }
     ];
@@ -143,8 +170,7 @@ class EnvSwitcher extends BaseCommand {
       choices.push(
         new inquirer.Separator(),
         { name: `${UIHelper.icons.add} 添加新供应商`, value: '__ADD__' },
-        { name: `${UIHelper.icons.list} 供应商管理`, value: '__MANAGE__' },
-        { name: `${UIHelper.icons.settings} 快速设置`, value: '__SETTINGS__' },
+        { name: `${UIHelper.icons.list} 供应商管理 (编辑/删除)`, value: '__MANAGE__' },
         { name: `${UIHelper.icons.error} 退出`, value: '__EXIT__' }
       );
 
@@ -159,7 +185,7 @@ class EnvSwitcher extends BaseCommand {
         process.exit(0);
       }, '退出程序');
 
-      const answer = await inquirer.prompt([
+      const answer = await this.prompt([
         {
           type: 'list',
           name: 'provider',
@@ -181,6 +207,7 @@ class EnvSwitcher extends BaseCommand {
   }
 
   showWelcomeScreen(providers) {
+    this.clearScreen();
     console.log(UIHelper.createTitle('Claude Code 供应商管理器', UIHelper.icons.home));
     console.log();
     
@@ -198,11 +225,13 @@ class EnvSwitcher extends BaseCommand {
     }
     
     console.log();
-    console.log(UIHelper.createTooltip('使用方向键选择，回车确认'));
-    console.log(UIHelper.colors.muted('快捷键:'));
-    console.log(`${UIHelper.createShortcutHint('Ctrl+C', '退出程序')}`);
-    console.log(`${UIHelper.createShortcutHint('Tab', '切换选项')}`);
-    console.log(`${UIHelper.createESCHint('退出程序')}`);
+    console.log(UIHelper.createHintLine([
+      ['↑ / ↓', '选择供应商'],
+      ['Enter', '确认'],
+      ['Tab', '切换选项'],
+      ['ESC', '退出程序'],
+      ['Ctrl+C', '强制退出']
+    ]));
     console.log();
   }
 
@@ -214,8 +243,6 @@ class EnvSwitcher extends BaseCommand {
         return await registry.executeCommand('add');
       case '__MANAGE__':
         return await this.showManageMenu();
-      case '__SETTINGS__':
-        return await this.showQuickSettings();
       case '__EXIT__':
         this.showExitScreen();
         process.exit(0);
@@ -225,6 +252,13 @@ class EnvSwitcher extends BaseCommand {
   }
 
   async showQuickSettings() {
+    this.clearScreen();
+    console.log(UIHelper.createHintLine([
+      ['↑ / ↓', '选择项目'],
+      ['Enter', '确认'],
+      ['ESC', '返回主菜单']
+    ]));
+    console.log();
     const choices = [
       { name: `${UIHelper.icons.search} 搜索供应商`, value: 'search' },
       { name: `${UIHelper.icons.edit} 批量编辑`, value: 'batch' },
@@ -239,17 +273,25 @@ class EnvSwitcher extends BaseCommand {
       this.showProviderSelection();
     }, '返回供应商选择');
 
-    const answer = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'setting',
-        message: '快速设置:',
-        choices,
-        pageSize: 8
+    let answer;
+    try {
+      answer = await this.prompt([
+        {
+          type: 'list',
+          name: 'setting',
+          message: '快速设置:',
+          choices,
+          pageSize: 8
+        }
+      ]);
+    } catch (error) {
+      this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
       }
-    ]);
+      throw error;
+    }
     
-    // 移除 ESC 键监听
     this.removeESCListener(escListener);
 
     switch (answer.setting) {
@@ -267,9 +309,15 @@ class EnvSwitcher extends BaseCommand {
   }
 
   async showBatchEdit() {
+    this.clearScreen();
     console.log(UIHelper.createTitle('批量编辑', UIHelper.icons.edit));
     console.log();
     console.log(UIHelper.createTooltip('此功能正在开发中...'));
+    console.log();
+    console.log(UIHelper.createHintLine([
+      ['Enter', '返回上一页'],
+      ['ESC', '返回快速设置']
+    ]));
     console.log();
     
     // 设置 ESC 键监听
@@ -278,24 +326,37 @@ class EnvSwitcher extends BaseCommand {
       this.showQuickSettings();
     }, '返回快速设置');
     
-    await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'continue',
-        message: '按回车键返回...'
+    try {
+      await this.prompt([
+        {
+          type: 'input',
+          name: 'continue',
+          message: '按回车键返回...'
+        }
+      ]);
+    } catch (error) {
+      this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
       }
-    ]);
+      throw error;
+    }
     
-    // 移除 ESC 键监听
     this.removeESCListener(escListener);
 
     return await this.showQuickSettings();
   }
 
   async showGlobalSettings() {
+    this.clearScreen();
     console.log(UIHelper.createTitle('全局设置', UIHelper.icons.settings));
     console.log();
     console.log(UIHelper.createTooltip('此功能正在开发中...'));
+    console.log();
+    console.log(UIHelper.createHintLine([
+      ['Enter', '返回上一页'],
+      ['ESC', '返回快速设置']
+    ]));
     console.log();
     
     // 设置 ESC 键监听
@@ -304,37 +365,59 @@ class EnvSwitcher extends BaseCommand {
       this.showQuickSettings();
     }, '返回快速设置');
     
-    await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'continue',
-        message: '按回车键返回...'
+    try {
+      await this.prompt([
+        {
+          type: 'input',
+          name: 'continue',
+          message: '按回车键返回...'
+        }
+      ]);
+    } catch (error) {
+      this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
       }
-    ]);
+      throw error;
+    }
     
-    // 移除 ESC 键监听
     this.removeESCListener(escListener);
 
     return await this.showQuickSettings();
   }
 
   async showSearchProvider() {
+    this.clearScreen();
+    console.log(UIHelper.createHintLine([
+      ['Enter', '执行搜索'],
+      ['ESC', '返回快速设置']
+    ]));
+    console.log(UIHelper.createTooltip('示例: claude、demo 或供应商别名'));
+    console.log();
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
       Logger.info('返回快速设置');
       this.showQuickSettings();
     }, '返回快速设置');
 
-    const answer = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'search',
-        message: '输入供应商名称搜索:',
-        validate: input => input.trim() !== '' || '请输入搜索内容'
+    let answer;
+    try {
+      answer = await this.prompt([
+        {
+          type: 'input',
+          name: 'search',
+          message: '输入供应商名称搜索:',
+          validate: input => input.trim() !== '' || '请输入搜索内容'
+        }
+      ]);
+    } catch (error) {
+      this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
       }
-    ]);
+      throw error;
+    }
     
-    // 移除 ESC 键监听
     this.removeESCListener(escListener);
 
     await this.configManager.load();
@@ -369,18 +452,33 @@ class EnvSwitcher extends BaseCommand {
       this.showQuickSettings();
     }, '返回快速设置');
 
-    const result = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'provider',
-        message: '搜索结果:',
-        choices,
-        default: defaultChoice,
-        pageSize: 10
+    console.log();
+    console.log(UIHelper.createHintLine([
+      ['↑ / ↓', '选择结果'],
+      ['Enter', '查看详情'],
+      ['ESC', '返回快速设置']
+    ]));
+
+    let result;
+    try {
+      result = await this.prompt([
+        {
+          type: 'list',
+          name: 'provider',
+          message: '搜索结果:',
+          choices,
+          default: defaultChoice,
+          pageSize: 10
+        }
+      ]);
+    } catch (error) {
+      this.removeESCListener(escListener2);
+      if (this.isEscCancelled(error)) {
+        return;
       }
-    ]);
+      throw error;
+    }
     
-    // 移除 ESC 键监听
     this.removeESCListener(escListener2);
 
     if (result.provider === 'back') {
@@ -393,6 +491,7 @@ class EnvSwitcher extends BaseCommand {
   async showStatistics() {
     await this.configManager.load();
     const providers = this.configManager.listProviders();
+    this.clearScreen();
     
     const totalProviders = providers.length;
     const currentProvider = providers.find(p => p.current);
@@ -412,38 +511,127 @@ class EnvSwitcher extends BaseCommand {
     
     console.log(UIHelper.createTable(['项目', '数据'], stats));
     console.log();
-    
+    console.log(UIHelper.createHintLine([
+      ['Enter', '返回快速设置'],
+      ['ESC', '返回快速设置']
+    ]));
+    console.log();
+
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
       Logger.info('返回快速设置');
       this.showQuickSettings();
     }, '返回快速设置');
     
-    await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'continue',
-        message: '按回车键继续...'
+    try {
+      await this.prompt([
+        {
+          type: 'input',
+          name: 'continue',
+          message: '按回车键继续...'
+        }
+      ]);
+    } catch (error) {
+      this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
       }
-    ]);
+      throw error;
+    }
     
-    // 移除 ESC 键监听
     this.removeESCListener(escListener);
 
     return await this.showQuickSettings();
   }
 
   showExitScreen() {
+    this.clearScreen();
     console.log(UIHelper.createTitle('感谢使用', UIHelper.icons.home));
     console.log();
     console.log(UIHelper.colors.info('再见！期待下次使用 🎉'));
     console.log();
   }
 
+  async showHelp() {
+    this.clearScreen();
+    console.log(UIHelper.createTitle('快捷键帮助', UIHelper.icons.info));
+    console.log();
+
+    const sections = [
+      {
+        title: '通用操作',
+        items: [
+          UIHelper.createShortcutHint('↑ / ↓', '在选项中移动'),
+          UIHelper.createShortcutHint('Enter', '确认/继续'),
+          UIHelper.createShortcutHint('ESC', '返回上一层'),
+          UIHelper.createShortcutHint('Ctrl+C', '随时强制退出')
+        ]
+      },
+      {
+        title: '供应商列表',
+        items: [
+          UIHelper.createShortcutHint('Tab', '切换特殊选项'),
+          UIHelper.createShortcutHint('A', '在启动参数列表中全选'),
+          UIHelper.createShortcutHint('I', '在启动参数列表中反选')
+        ]
+      },
+      {
+        title: '搜索界面',
+        items: [
+          UIHelper.createShortcutHint('Enter', '执行搜索或确认结果'),
+          UIHelper.createShortcutHint('ESC', '取消搜索返回上一页')
+        ]
+      }
+    ];
+
+    sections.forEach(section => {
+      console.log(UIHelper.createCard(section.title, section.items.join('\n'), UIHelper.icons.info));
+      console.log();
+    });
+
+    const escListener = this.createESCListener(() => {
+      Logger.info('返回主菜单');
+      this.showProviderSelection();
+    }, '返回主菜单');
+
+    console.log(UIHelper.createHintLine([
+      ['Enter', '返回主菜单'],
+      ['ESC', '返回主菜单']
+    ]));
+    console.log();
+
+    try {
+      await this.prompt([
+        {
+          type: 'input',
+          name: 'continue',
+          message: '按回车键返回主菜单'
+        }
+      ]);
+    } catch (error) {
+      this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return;
+      }
+      throw error;
+    }
+
+    this.removeESCListener(escListener);
+    return await this.showProviderSelection();
+  }
+
   async showManageMenu() {
+    let escListener;
     try {
       await this.configManager.load();
       const providers = this.configManager.listProviders();
+      this.clearScreen();
+      console.log(UIHelper.createHintLine([
+        ['↑ / ↓', '选择供应商或操作'],
+        ['Enter', '确认'],
+        ['ESC', '返回主菜单']
+      ]));
+      console.log();
       
       console.log(UIHelper.createTitle('供应商管理', UIHelper.icons.list));
       console.log();
@@ -456,22 +644,30 @@ class EnvSwitcher extends BaseCommand {
       const choices = this.createProviderChoices(providers, true);
       
       // 设置 ESC 键监听
-      const escListener = this.createESCListener(() => {
+      escListener = this.createESCListener(() => {
         Logger.info('返回供应商选择');
         this.showProviderSelection();
       }, '返回供应商选择');
 
-      const answer = await inquirer.prompt([
-        {
-          type: 'list',
-          name: 'action',
-          message: '选择供应商或操作:',
-          choices,
-          pageSize: 12
+      let answer;
+      try {
+        answer = await this.prompt([
+          {
+            type: 'list',
+            name: 'action',
+            message: '选择供应商或操作:',
+            choices,
+            pageSize: 12
+          }
+        ]);
+      } catch (error) {
+        this.removeESCListener(escListener);
+        if (this.isEscCancelled(error)) {
+          return;
         }
-      ]);
+        throw error;
+      }
       
-      // 移除 ESC 键监听
       this.removeESCListener(escListener);
 
       return await this.handleManageAction(answer.action);
@@ -491,8 +687,6 @@ class EnvSwitcher extends BaseCommand {
     if (includeActions) {
       choices.push(
         new inquirer.Separator(),
-        { name: `${UIHelper.icons.edit} 编辑供应商`, value: '__EDIT__' },
-        { name: `${UIHelper.icons.delete} 删除供应商`, value: '__REMOVE__' },
         { name: `${UIHelper.icons.back} 返回供应商选择`, value: 'back' },
         { name: `${UIHelper.icons.error} 退出`, value: 'exit' }
       );
@@ -503,10 +697,6 @@ class EnvSwitcher extends BaseCommand {
 
   async handleManageAction(action) {
     switch (action) {
-      case '__EDIT__':
-        return await this.showProviderSelectionForAction('edit', '选择要编辑的供应商:');
-      case '__REMOVE__':
-        return await this.showProviderSelectionForAction('remove', '选择要删除的供应商:');
       case 'back':
         return await this.showProviderSelection();
       case 'exit':
@@ -540,7 +730,7 @@ class EnvSwitcher extends BaseCommand {
         this.showManageMenu();
       }, '返回管理列表');
 
-      const answer = await inquirer.prompt([
+      const answer = await this.prompt([
         {
           type: 'list',
           name: 'provider',
@@ -576,10 +766,18 @@ class EnvSwitcher extends BaseCommand {
   }
 
   async showProviderDetails(providerName) {
+    let escListener;
     try {
       const provider = await this.validateProvider(providerName);
+      this.clearScreen();
       
       console.log(UIHelper.createTitle('供应商详情', UIHelper.icons.info));
+      console.log();
+      console.log(UIHelper.createHintLine([
+        ['↑ / ↓', '选择操作'],
+        ['Enter', '确认'],
+        ['ESC', '返回管理列表']
+      ]));
       console.log();
       
       const details = [
@@ -605,24 +803,33 @@ class EnvSwitcher extends BaseCommand {
       }
 
       // 设置 ESC 键监听
-      const escListener = this.createESCListener(() => {
+      escListener = this.createESCListener(() => {
         Logger.info('返回管理列表');
         this.showManageMenu();
       }, '返回管理列表');
 
-      const answer = await inquirer.prompt([
-        {
-          type: 'list',
-          name: 'action',
-          message: '选择操作:',
-          choices: [
-            { name: `${UIHelper.icons.launch} 立即启动`, value: 'launch' },
-            { name: `${UIHelper.icons.edit} 编辑供应商`, value: 'edit' },
-            { name: `${UIHelper.icons.delete} 删除供应商`, value: 'remove' },
-            { name: `${UIHelper.icons.back} 返回管理列表`, value: 'back' }
-          ]
+      let answer;
+      try {
+        answer = await this.prompt([
+          {
+            type: 'list',
+            name: 'action',
+            message: '选择操作:',
+            choices: [
+              { name: `${UIHelper.icons.launch} 立即启动`, value: 'launch' },
+              { name: `${UIHelper.icons.edit} 编辑供应商`, value: 'edit' },
+              { name: `${UIHelper.icons.delete} 删除供应商`, value: 'remove' },
+              { name: `${UIHelper.icons.back} 返回管理列表`, value: 'back' }
+            ]
+          }
+        ]);
+      } catch (error) {
+        this.removeESCListener(escListener);
+        if (this.isEscCancelled(error)) {
+          return;
         }
-      ]);
+        throw error;
+      }
 
       switch (answer.action) {
         case 'back':
@@ -651,9 +858,11 @@ class EnvSwitcher extends BaseCommand {
   }
 
   async editProvider(providerName) {
+    let escListener;
     try {
       await this.configManager.load();
       const provider = this.configManager.getProvider(providerName);
+      this.clearScreen();
       
       if (!provider) {
         Logger.error(`供应商 '${providerName}' 不存在`);
@@ -661,76 +870,85 @@ class EnvSwitcher extends BaseCommand {
       }
 
       // 设置 ESC 键监听
-      const escListener = this.createESCListener(() => {
+      escListener = this.createESCListener(() => {
         Logger.info('取消编辑供应商');
         this.showManageMenu();
       }, '取消编辑');
 
-      const answers = await inquirer.prompt([
-        {
-          type: 'input',
-          name: 'displayName',
-          message: '显示名称:',
-          default: provider.displayName
-        },
-        {
-          type: 'list',
-          name: 'authMode',
-          message: '认证模式:',
-          choices: [
-            { name: '🔑 API密钥模式 (ANTHROPIC_API_KEY) - 适用于第三方服务商', value: 'api_key' },
-            { name: '🔐 认证令牌模式 (ANTHROPIC_AUTH_TOKEN) - 适用于第三方服务商', value: 'auth_token' },
-            { name: '🌐 OAuth令牌模式 (CLAUDE_CODE_OAUTH_TOKEN) - 适用于官方Claude Code', value: 'oauth_token' }
-          ],
-          default: provider.authMode || 'api_key'
-        },
-        {
-          type: 'input',
-          name: 'baseUrl',
-          message: '基础URL:',
-          default: provider.baseUrl,
-          when: (answers) => answers.authMode === 'api_key' || answers.authMode === 'auth_token'
-        },
-        {
-          type: 'input',
-          name: 'authToken',
-          message: (answers) => {
-            switch (answers.authMode) {
-              case 'api_key':
-                return 'API密钥 (ANTHROPIC_API_KEY):';
-              case 'auth_token':
-                return '认证令牌 (ANTHROPIC_AUTH_TOKEN):';
-              case 'oauth_token':
-                return 'OAuth令牌 (CLAUDE_CODE_OAUTH_TOKEN):';
-              default:
-                return '认证令牌:';
+      let answers;
+      try {
+        answers = await this.prompt([
+          {
+            type: 'input',
+            name: 'displayName',
+            message: '显示名称:',
+            default: provider.displayName
+          },
+          {
+            type: 'list',
+            name: 'authMode',
+            message: '认证模式:',
+            choices: [
+              { name: '🔑 API密钥模式 (ANTHROPIC_API_KEY) - 适用于第三方服务商', value: 'api_key' },
+              { name: '🔐 认证令牌模式 (ANTHROPIC_AUTH_TOKEN) - 适用于第三方服务商', value: 'auth_token' },
+              { name: '🌐 OAuth令牌模式 (CLAUDE_CODE_OAUTH_TOKEN) - 适用于官方Claude Code', value: 'oauth_token' }
+            ],
+            default: provider.authMode || 'api_key'
+          },
+          {
+            type: 'input',
+            name: 'baseUrl',
+            message: '基础URL:',
+            default: provider.baseUrl,
+            when: (answers) => answers.authMode === 'api_key' || answers.authMode === 'auth_token'
+          },
+          {
+            type: 'input',
+            name: 'authToken',
+            message: (answers) => {
+              switch (answers.authMode) {
+                case 'api_key':
+                  return 'API密钥 (ANTHROPIC_API_KEY):';
+                case 'auth_token':
+                  return '认证令牌 (ANTHROPIC_AUTH_TOKEN):';
+                case 'oauth_token':
+                  return 'OAuth令牌 (CLAUDE_CODE_OAUTH_TOKEN):';
+                default:
+                  return '认证令牌:';
+              }
+            },
+            default: provider.authToken
+          },
+          {
+            type: 'input',
+            name: 'primaryModel',
+            message: '主模型 (ANTHROPIC_MODEL):',
+            default: provider.models?.primary || '',
+            validate: (input) => {
+              const error = validator.validateModel(input);
+              if (error) return error;
+              return true;
             }
           },
-          default: provider.authToken
-        },
-        {
-          type: 'input',
-          name: 'primaryModel',
-          message: '主模型 (ANTHROPIC_MODEL):',
-          default: provider.models?.primary || '',
-          validate: (input) => {
-            const error = validator.validateModel(input);
-            if (error) return error;
-            return true;
+          {
+            type: 'input',
+            name: 'smallFastModel',
+            message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL):',
+            default: provider.models?.smallFast || '',
+            validate: (input) => {
+              const error = validator.validateModel(input);
+              if (error) return error;
+              return true;
+            }
           }
-        },
-        {
-          type: 'input',
-          name: 'smallFastModel',
-          message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL):',
-          default: provider.models?.smallFast || '',
-          validate: (input) => {
-            const error = validator.validateModel(input);
-            if (error) return error;
-            return true;
-          }
+        ]);
+      } catch (error) {
+        this.removeESCListener(escListener);
+        if (this.isEscCancelled(error)) {
+          return;
         }
-      ]);
+        throw error;
+      }
 
       // 更新供应商配置
       provider.displayName = answers.displayName;
@@ -761,9 +979,11 @@ class EnvSwitcher extends BaseCommand {
   }
 
   async removeProvider(providerName) {
+    let escListener;
     try {
       await this.configManager.load();
       const provider = this.configManager.getProvider(providerName);
+      this.clearScreen();
       
       if (!provider) {
         Logger.error(`供应商 '${providerName}' 不存在`);
@@ -771,19 +991,28 @@ class EnvSwitcher extends BaseCommand {
       }
 
       // 设置 ESC 键监听
-      const escListener = this.createESCListener(() => {
+      escListener = this.createESCListener(() => {
         Logger.info('取消删除供应商');
         this.showManageMenu();
       }, '取消删除');
 
-      const confirm = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'confirmed',
-          message: `确定要删除供应商 '${providerName}' 吗?`,
-          default: false
+      let confirm;
+      try {
+        confirm = await this.prompt([
+          {
+            type: 'confirm',
+            name: 'confirmed',
+            message: `确定要删除供应商 '${providerName}' 吗?`,
+            default: false
+          }
+        ]);
+      } catch (error) {
+        this.removeESCListener(escListener);
+        if (this.isEscCancelled(error)) {
+          return;
         }
-      ]);
+        throw error;
+      }
 
       if (confirm.confirmed) {
         await this.configManager.removeProvider(providerName);

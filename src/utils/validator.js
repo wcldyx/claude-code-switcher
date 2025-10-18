@@ -113,33 +113,45 @@ const validator = {
   getAvailableLaunchArgs() {
     return [
       {
+        name: '--continue',
+        label: '继续上次对话',
+        description: '恢复上次的对话记录',
+        checked: false
+      },
+      {
         name: '--dangerously-skip-permissions',
-        description: '跳过权限检查（最大化权限）',
+        label: '最高权限',
+        description: '仅限沙盒环境使用',
         checked: false
       },
       {
         name: '--no-confirm',
+        label: '直接执行操作',
         description: '跳过确认提示',
         checked: false
       },
       {
         name: '--allow-all',
-        description: '允许所有操作',
+        label: '允许全部操作',
+        description: '移除安全限制',
         checked: false
       },
       {
         name: '--auto-approve',
-        description: '自动批准操作',
+        label: '自动批准请求',
+        description: '无需人工同意',
         checked: false
       },
       {
         name: '--yes',
-        description: '自动回答yes',
+        label: '默认回答 yes',
+        description: '自动同意所有询问',
         checked: false
       },
       {
         name: '--force',
-        description: '强制执行操作',
+        label: '强制执行',
+        description: '忽略可能的警告',
         checked: false
       }
     ];
