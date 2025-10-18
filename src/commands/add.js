@@ -271,207 +271,39 @@ class ProviderAdder extends BaseCommand {
   async saveProvider(answers) {
     try {
       await this.configManager.load();
-      
-      // 检查供应商是否已存在
+
       if (this.configManager.getProvider(answers.name)) {
-        // 设置 ESC 键监听
-        const escListener = this.createESCListener(() => {
-          Logger.info('取消覆盖供应商');
-          // 返回供应商选择界面
-          const { switchCommand } = require('./switch');
-          switchCommand();
-        }, '取消覆盖');
-
-        try {
-          const overwrite = await this.prompt([
-            {
-              type: 'confirm',
-              name: 'overwrite',
-              message: `供应商 '${answers.name}' 已存在，是否覆盖?`,
-              default: false
-            }
-          ]);
-
-          // 移除 ESC 键监听
-          this.removeESCListener(escListener);
-
-          if (!overwrite.overwrite) {
-            Logger.warning('操作已取消');
-            return;
-          }
-        } catch (error) {
-          // 移除 ESC 键监听
-          this.removeESCListener(escListener);
-          throw error;
+        const shouldOverwrite = await this.confirmOverwrite(answers.name);
+        if (!shouldOverwrite) {
+          Logger.warning('操作已取消');
+          return;
         }
       }
 
-      // 如果需要配置启动参数
-      let launchArgs = [];
-      if (answers.configureLaunchArgs) {
-        console.log(UIHelper.createTitle('配置启动参数', UIHelper.icons.settings));
-        console.log();
-        console.log(UIHelper.createTooltip('选择要使用的启动参数'));
-        console.log();
-        console.log(UIHelper.createStepIndicator(3, 3, '可选: 配置启动参数'));
-        console.log(UIHelper.createHintLine([
-          ['空格', '切换选中'],
-          ['A', '全选'],
-          ['I', '反选'],
-          ['Enter', '确认选择'],
-          ['ESC', '跳过配置']
-        ]));
-        console.log();
+      const launchArgs = answers.configureLaunchArgs
+        ? await this.promptLaunchArgsSelection()
+        : [];
 
-        // 设置 ESC 键监听
-        const escListener = this.createESCListener(() => {
-          Logger.info('跳过启动参数配置');
-          // 继续保存供应商但不配置启动参数
-        }, '跳过配置');
-
-        try {
-          const launchArgsAnswers = await this.prompt([
-            {
-              type: 'checkbox',
-              name: 'launchArgs',
-              message: '请选择启动参数:',
-              choices: validator.getAvailableLaunchArgs().map(arg => ({
-                name: `${arg.name} - ${arg.description}`,
-                value: arg.name,
-                checked: false
-              }))
-            }
-          ]);
-
-          // 移除 ESC 键监听
-          this.removeESCListener(escListener);
-          
-          launchArgs = launchArgsAnswers.launchArgs;
-        } catch (error) {
-          // 移除 ESC 键监听
-          this.removeESCListener(escListener);
-          // 如果用户按ESC，我们继续但不配置启动参数
-          if (this.isEscCancelled(error)) {
-            launchArgs = [];
-          } else {
-            throw error;
-          }
-        }
-      }
-
-      // 如果需要配置模型参数
-      let primaryModel = null;
-      let smallFastModel = null;
-      if (answers.configureModels) {
-        console.log(UIHelper.createTitle('配置模型参数', UIHelper.icons.settings));
-        console.log();
-        console.log(UIHelper.createTooltip('配置主模型和快速模型（可选）'));
-        console.log();
-        console.log(UIHelper.createStepIndicator(3, 3, '可选: 配置模型参数'));
-        console.log(UIHelper.createHintLine([
-          ['Enter', '确认输入'],
-          ['ESC', '跳过配置']
-        ]));
-        console.log();
-
-        // 设置 ESC 键监听
-        const escListener = this.createESCListener(() => {
-          Logger.info('跳过模型参数配置');
-          // 继续保存供应商但不配置模型参数
-        }, '跳过配置');
-
-        try {
-          const modelAnswers = await this.prompt([
-            {
-              type: 'input',
-              name: 'primaryModel',
-              message: '主模型 (ANTHROPIC_MODEL)：',
-              default: '',
-              validate: (input) => {
-                const error = validator.validateModel(input);
-                if (error) return error;
-                return true;
-              }
-            },
-            {
-              type: 'input',
-              name: 'smallFastModel',
-              message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL)：',
-              default: '',
-              validate: (input) => {
-                const error = validator.validateModel(input);
-                if (error) return error;
-                return true;
-              }
-            }
-          ]);
-
-          // 移除 ESC 键监听
-          this.removeESCListener(escListener);
-          
-          primaryModel = modelAnswers.primaryModel;
-          smallFastModel = modelAnswers.smallFastModel;
-        } catch (error) {
-          // 移除 ESC 键监听
-          this.removeESCListener(escListener);
-          // 如果用户按ESC，我们继续但不配置模型参数
-          if (this.isEscCancelled(error)) {
-            primaryModel = null;
-            smallFastModel = null;
-          } else {
-            throw error;
-          }
-        }
-      }
+      const modelConfig = answers.configureModels
+        ? await this.promptModelConfiguration()
+        : { primaryModel: null, smallFastModel: null };
 
       await this.configManager.addProvider(answers.name, {
         displayName: answers.displayName || answers.name,
         baseUrl: answers.baseUrl,
         authToken: answers.authToken,
         authMode: answers.authMode,
-        launchArgs: launchArgs,
-        primaryModel: primaryModel,
-        smallFastModel: smallFastModel,
+        launchArgs,
+        primaryModel: modelConfig.primaryModel,
+        smallFastModel: modelConfig.smallFastModel,
         setAsDefault: answers.setAsDefault
       });
 
-      const finalDisplayName = answers.displayName || answers.name;
-      Logger.success(`供应商 '${finalDisplayName}' 添加成功！`);
-      
-      // 显示添加的配置信息
-      console.log(chalk.blue('\n配置详情:'));
-      console.log(chalk.gray(`  名称: ${answers.name}`));
-      console.log(chalk.gray(`  显示名称: ${finalDisplayName}`));
-      const authModeDisplay = {
-        'api_key': 'API密钥模式 (ANTHROPIC_API_KEY)',
-        'auth_token': '认证令牌模式 (ANTHROPIC_AUTH_TOKEN)',
-        'oauth_token': 'OAuth令牌模式 (CLAUDE_CODE_OAUTH_TOKEN)'
-      };
-      console.log(chalk.gray(`  认证模式: ${authModeDisplay[answers.authMode] || answers.authMode}`));
-      if (answers.baseUrl) {
-        console.log(chalk.gray(`  基础URL: ${answers.baseUrl}`));
-      }
-      console.log(chalk.gray(`  Token: ${answers.authToken}`));
-      if (launchArgs.length > 0) {
-        console.log(chalk.gray(`  启动参数: ${launchArgs.join(' ')}`));
-      }
-      if (primaryModel) {
-        console.log(chalk.gray(`  主模型: ${primaryModel}`));
-      }
-      if (smallFastModel) {
-        console.log(chalk.gray(`  快速模型: ${smallFastModel}`));
-      }
-      
-      // 显示成功消息后稍停，然后返回主界面
-      console.log(chalk.green('\n🎉 供应商添加完成！正在返回主界面...'));
-      
-      // 稍微延迟后返回主界面
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // 使用CommandRegistry返回主界面
+      this.printProviderSummary(answers, launchArgs, modelConfig);
+      await this.pauseBeforeReturn();
+
       const { registry } = require('../CommandRegistry');
       return await registry.executeCommand('switch');
-      
     } catch (error) {
       if (this.isEscCancelled(error)) {
         return;
@@ -479,6 +311,170 @@ class ProviderAdder extends BaseCommand {
       Logger.error(`添加供应商失败: ${error.message}`);
       throw error;
     }
+  }
+
+  async confirmOverwrite(name) {
+    const escListener = this.createESCListener(() => {
+      Logger.info('取消覆盖供应商');
+      const { switchCommand } = require('./switch');
+      switchCommand();
+    }, '取消覆盖');
+
+    try {
+      const { overwrite } = await this.prompt([
+        {
+          type: 'confirm',
+          name: 'overwrite',
+          message: `供应商 '${name}' 已存在，是否覆盖?`,
+          default: false
+        }
+      ]);
+
+      this.removeESCListener(escListener);
+      return overwrite;
+    } catch (error) {
+      this.removeESCListener(escListener);
+      throw error;
+    }
+  }
+
+  async promptLaunchArgsSelection() {
+    console.log(UIHelper.createTitle('配置启动参数', UIHelper.icons.settings));
+    console.log();
+    console.log(UIHelper.createTooltip('选择要使用的启动参数'));
+    console.log();
+    console.log(UIHelper.createStepIndicator(3, 3, '可选: 配置启动参数'));
+    console.log(UIHelper.createHintLine([
+      ['空格', '切换选中'],
+      ['A', '全选'],
+      ['I', '反选'],
+      ['Enter', '确认选择'],
+      ['ESC', '跳过配置']
+    ]));
+    console.log();
+
+    const escListener = this.createESCListener(() => {
+      Logger.info('跳过启动参数配置');
+    }, '跳过配置');
+
+    try {
+      const { launchArgs } = await this.prompt([
+        {
+          type: 'checkbox',
+          name: 'launchArgs',
+          message: '请选择启动参数:',
+          choices: validator.getAvailableLaunchArgs().map(arg => ({
+            name: `${arg.name} - ${arg.description}`,
+            value: arg.name,
+            checked: false
+          }))
+        }
+      ]);
+
+      this.removeESCListener(escListener);
+      return launchArgs;
+    } catch (error) {
+      this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async promptModelConfiguration() {
+    console.log(UIHelper.createTitle('配置模型参数', UIHelper.icons.settings));
+    console.log();
+    console.log(UIHelper.createTooltip('配置主模型和快速模型（可选）'));
+    console.log();
+    console.log(UIHelper.createStepIndicator(3, 3, '可选: 配置模型参数'));
+    console.log(UIHelper.createHintLine([
+      ['Enter', '确认输入'],
+      ['ESC', '跳过配置']
+    ]));
+    console.log();
+
+    const escListener = this.createESCListener(() => {
+      Logger.info('跳过模型参数配置');
+    }, '跳过配置');
+
+    try {
+      const responses = await this.prompt([
+        {
+          type: 'input',
+          name: 'primaryModel',
+          message: '主模型 (ANTHROPIC_MODEL)：',
+          default: '',
+          validate: (input) => {
+            const error = validator.validateModel(input);
+            if (error) return error;
+            return true;
+          }
+        },
+        {
+          type: 'input',
+          name: 'smallFastModel',
+          message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL)：',
+          default: '',
+          validate: (input) => {
+            const error = validator.validateModel(input);
+            if (error) return error;
+            return true;
+          }
+        }
+      ]);
+
+      this.removeESCListener(escListener);
+      return {
+        primaryModel: responses.primaryModel,
+        smallFastModel: responses.smallFastModel
+      };
+    } catch (error) {
+      this.removeESCListener(escListener);
+      if (this.isEscCancelled(error)) {
+        return { primaryModel: null, smallFastModel: null };
+      }
+      throw error;
+    }
+  }
+
+  printProviderSummary(answers, launchArgs, modelConfig) {
+    const finalDisplayName = answers.displayName || answers.name;
+    Logger.success(`供应商 '${finalDisplayName}' 添加成功！`);
+
+    console.log(chalk.blue('\n配置详情:'));
+    console.log(chalk.gray(`  名称: ${answers.name}`));
+    console.log(chalk.gray(`  显示名称: ${finalDisplayName}`));
+
+    const authModeDisplay = {
+      api_key: 'API密钥模式 (ANTHROPIC_API_KEY)',
+      auth_token: '认证令牌模式 (ANTHROPIC_AUTH_TOKEN)',
+      oauth_token: 'OAuth令牌模式 (CLAUDE_CODE_OAUTH_TOKEN)'
+    };
+
+    console.log(chalk.gray(`  认证模式: ${authModeDisplay[answers.authMode] || answers.authMode}`));
+    if (answers.baseUrl) {
+      console.log(chalk.gray(`  基础URL: ${answers.baseUrl}`));
+    }
+    console.log(chalk.gray(`  Token: ${answers.authToken}`));
+
+    if (launchArgs.length > 0) {
+      console.log(chalk.gray(`  启动参数: ${launchArgs.join(' ')}`));
+    }
+
+    if (modelConfig.primaryModel) {
+      console.log(chalk.gray(`  主模型: ${modelConfig.primaryModel}`));
+    }
+
+    if (modelConfig.smallFastModel) {
+      console.log(chalk.gray(`  快速模型: ${modelConfig.smallFastModel}`));
+    }
+
+    console.log(chalk.green('\n🎉 供应商添加完成！正在返回主界面...'));
+  }
+
+  async pauseBeforeReturn(delay = 1500) {
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
 }
 

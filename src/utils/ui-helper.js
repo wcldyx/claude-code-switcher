@@ -1,5 +1,4 @@
 const chalk = require('chalk');
-const { WindowsSupport } = require('./windows-support');
 
 class UIHelper {
   // 颜色主题

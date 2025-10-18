@@ -1,7 +1,7 @@
 const inquirer = require('inquirer');
 const chalk = require('chalk');
 const { ConfigManager } = require('../config');
-const { WindowsSupport } = require('../utils/windows-support');
+const { executeWithEnv } = require('../utils/env-launcher');
 const { Logger } = require('../utils/logger');
 const { UIHelper } = require('../utils/ui-helper');
 const { BaseCommand } = require('./BaseCommand');
@@ -119,7 +119,7 @@ class EnvSwitcher extends BaseCommand {
         console.log();
         
         // 设置环境变量并启动Claude Code
-        await WindowsSupport.executeWithEnv(provider, selectedLaunchArgs);
+        await executeWithEnv(provider, selectedLaunchArgs);
         
       } catch (error) {
         UIHelper.clearLoadingAnimation(loadingInterval);
@@ -705,63 +705,6 @@ class EnvSwitcher extends BaseCommand {
       default:
         // 如果选择的是供应商名称，显示该供应商的详细信息
         return await this.showProviderDetails(action);
-    }
-  }
-
-  async showProviderSelectionForAction(action, message) {
-    try {
-      await this.configManager.load();
-      const providers = this.configManager.listProviders();
-      
-      const choices = this.createProviderChoices(providers);
-      
-      choices.push(
-        new inquirer.Separator(),
-        { name: '🔙 返回', value: 'back' }
-      );
-
-      // 获取当前供应商作为默认选项
-      const currentProvider = providers.find(p => p.current);
-      const defaultChoice = currentProvider ? currentProvider.name : providers[0]?.name;
-
-      // 设置 ESC 键监听
-      const escListener = this.createESCListener(() => {
-        Logger.info('返回管理列表');
-        this.showManageMenu();
-      }, '返回管理列表');
-
-      const answer = await this.prompt([
-        {
-          type: 'list',
-          name: 'provider',
-          message,
-          choices,
-          default: defaultChoice,
-          pageSize: 10
-        }
-      ]);
-
-      if (answer.provider === 'back') {
-        // 移除 ESC 键监听
-        this.removeESCListener(escListener);
-        return await this.showManageMenu();
-      }
-
-      // 移除 ESC 键监听
-      this.removeESCListener(escListener);
-
-      if (action === 'edit') {
-        return await this.editProvider(answer.provider);
-      } else if (action === 'remove') {
-        return await this.removeProvider(answer.provider);
-      }
-      
-    } catch (error) {
-      // 移除 ESC 键监听
-      this.removeESCListener(escListener);
-      const actionText = action === 'edit' ? '编辑' : '删除';
-      Logger.error(`${actionText}供应商选择失败: ${error.message}`);
-      throw error;
     }
   }
 
