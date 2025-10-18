@@ -43,7 +43,8 @@ class EnvSwitcher extends BaseCommand {
         {
           type: 'checkbox',
           name: 'selectedArgs',
-          message: '选择启动参数:',
+          message: '选择启动参数（按空格选择，按 a 全选，按 i 反选，按回车继续）:',
+          instructions: false,
           choices: availableArgs.map(arg => ({
             name: `${UIHelper.colors.accent(arg.name)} - ${UIHelper.colors.muted(arg.description)}`,
             value: arg.name,

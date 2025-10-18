@@ -298,7 +298,8 @@ class ProviderAdder extends BaseCommand {
             {
               type: 'checkbox',
               name: 'launchArgs',
-              message: '请选择启动参数:',
+              message: '请选择启动参数（按空格选择，按 a 全选，按 i 反选，按回车继续）:',
+              instructions: false,
               choices: validator.getAvailableLaunchArgs().map(arg => ({
                 name: `${arg.name} - ${arg.description}`,
                 value: arg.name,
