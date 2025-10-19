@@ -29,6 +29,7 @@ class UIHelper {
     delete: '🗑️',
     launch: '🚀',
     list: '📋',
+    config: '🛠️',
     current: '🎯',
     search: '🔍'
   };

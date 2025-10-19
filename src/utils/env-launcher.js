@@ -1,5 +1,26 @@
 const spawn = require('cross-spawn');
 
+function clearTerminal() {
+  if (!process.stdout || typeof process.stdout.write !== 'function') {
+    return;
+  }
+
+  try {
+    process.stdout.write('\x1bc');
+  } catch (error) {
+    // 某些终端可能不支持 RIS 序列，忽略即可
+  }
+
+  const sequence = process.platform === 'win32'
+    ? '\x1b[3J\x1b[2J\x1b[0f'
+    : '\x1b[3J\x1b[2J\x1b[H';
+  try {
+    process.stdout.write(sequence);
+  } catch (error) {
+    // 忽略清屏失败
+  }
+}
+
 function buildEnvVariables(config) {
   const env = { ...process.env };
 
@@ -27,6 +48,8 @@ function buildEnvVariables(config) {
 async function executeWithEnv(config, launchArgs = []) {
   const env = buildEnvVariables(config);
   const args = [...launchArgs];
+
+  clearTerminal();
 
   return new Promise((resolve, reject) => {
     const child = spawn('claude', args, {
