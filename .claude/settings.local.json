@@ -1,24 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:docs.anthropic.com)",
-      "Bash(claude-code:*)",
-      "Bash(node:*)",
-      "Bash(rm:*)",
-      "Bash(timeout:*)",
-      "Bash(npm test:*)",
-      "Bash(mv:*)",
-      "Bash(npm:*)",
-      "Bash(echo $PATH)",
-      "Bash(where cc)",
-      "Bash(cc:*)",
-      "Bash(tar:*)",
-      "Bash(./node_modules/.bin/cc:*)",
-      "Bash(npx cc:*)"
     ],
-    "deny": [],
-    "additionalDirectories": [
-      "G:\\tmp"
-    ]
+    "deny": []
   }
 }

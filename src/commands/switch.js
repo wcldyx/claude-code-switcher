@@ -799,11 +799,26 @@ class EnvSwitcher extends BaseCommand {
   }
 
   createProviderChoices(providers, includeActions = false) {
-    const choices = providers.map(provider => ({
-      name: UIHelper.formatProvider(provider),
-      value: provider.name,
-      short: provider.name
-    }));
+    const lastUsedProvider = providers.reduce((latest, current) => {
+      if (!current || !current.lastUsed) {
+        return latest;
+      }
+      if (!latest || !latest.lastUsed) {
+        return current;
+      }
+      return new Date(current.lastUsed) > new Date(latest.lastUsed) ? current : latest;
+    }, null);
+
+    const choices = providers.map(provider => {
+      const isLastUsed = lastUsedProvider && lastUsedProvider.name === provider.name;
+      const label = UIHelper.formatProvider(provider) + (isLastUsed ? UIHelper.colors.muted(' --- 上次使用') : '');
+
+      return {
+        name: label,
+        value: provider.name,
+        short: provider.name
+      };
+    });
 
     if (includeActions) {
       choices.push(
@@ -944,6 +959,17 @@ class EnvSwitcher extends BaseCommand {
         answers = await this.prompt([
           {
             type: 'input',
+            name: 'name',
+            message: '请输入供应商名称 (用于命令行):',
+            default: provider.name,
+            validate: (input) => {
+              const error = validator.validateName(input);
+              if (error) return error;
+              return true;
+            }
+          },
+          {
+            type: 'input',
             name: 'displayName',
             message: '显示名称:',
             default: provider.displayName,
@@ -1021,8 +1047,36 @@ class EnvSwitcher extends BaseCommand {
         throw error;
       }
 
+      const originalName = provider.name;
+      const newName = answers.name;
+
+      // 处理重命名逻辑
+      if (newName !== originalName) {
+        await this.configManager.ensureLoaded();
+        const providersMap = this.configManager.config.providers;
+
+        if (providersMap[newName] && providersMap[newName] !== provider) {
+          Logger.error(`供应商名称 '${newName}' 已存在，请使用其他名称`);
+          return await this.showManageMenu();
+        }
+
+        providersMap[newName] = {
+          ...provider,
+          name: newName
+        };
+
+        delete providersMap[originalName];
+
+        if (this.configManager.config.currentProvider === originalName) {
+          this.configManager.config.currentProvider = newName;
+          providersMap[newName].current = true;
+        }
+
+        provider = providersMap[newName];
+      }
+
       // 更新供应商配置
-      provider.displayName = answers.displayName;
+      provider.displayName = answers.displayName || newName;
       provider.baseUrl = answers.baseUrl;
       provider.authToken = answers.authToken;
       provider.authMode = answers.authMode;
@@ -1035,7 +1089,7 @@ class EnvSwitcher extends BaseCommand {
       provider.models.smallFast = answers.smallFastModel || null;
 
       await this.configManager.save();
-      Logger.success(`供应商 '${providerName}' 已更新`);
+      Logger.success(`供应商 '${newName}' 已更新`);
       
       // 移除 ESC 键监听
       this.removeESCListener(escListener);

@@ -3,8 +3,6 @@
     "allow": [
     ],
     "deny": [
-      "Bash(git add*)",
-      "Bash(git commit*)"
     ]
   }
 }
