@@ -825,7 +825,8 @@ class EnvSwitcher extends BaseCommand {
             type: 'input',
             name: 'displayName',
             message: '显示名称:',
-            default: provider.displayName
+            default: provider.displayName,
+            prefillDefault: true
           },
           {
             type: 'list',
@@ -843,6 +844,7 @@ class EnvSwitcher extends BaseCommand {
             name: 'baseUrl',
             message: '基础URL:',
             default: provider.baseUrl,
+            prefillDefault: true,
             when: (answers) => answers.authMode === 'api_key' || answers.authMode === 'auth_token'
           },
           {
@@ -860,13 +862,16 @@ class EnvSwitcher extends BaseCommand {
                   return '认证令牌:';
               }
             },
-            default: provider.authToken
+            default: provider.authToken,
+            prefillDefault: true
           },
           {
             type: 'input',
             name: 'primaryModel',
             message: '主模型 (ANTHROPIC_MODEL):',
             default: provider.models?.primary || '',
+            prefillDefault: true,
+            allowEmpty: true,
             validate: (input) => {
               const error = validator.validateModel(input);
               if (error) return error;
@@ -878,6 +883,8 @@ class EnvSwitcher extends BaseCommand {
             name: 'smallFastModel',
             message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL):',
             default: provider.models?.smallFast || '',
+            prefillDefault: true,
+            allowEmpty: true,
             validate: (input) => {
               const error = validator.validateModel(input);
               if (error) return error;

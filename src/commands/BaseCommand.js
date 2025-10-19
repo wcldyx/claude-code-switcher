@@ -3,6 +3,58 @@ const inquirer = require('inquirer');
 const { EscNavigationManager } = require('../navigation/EscNavigationManager');
 const { Logger } = require('../utils/logger');
 
+// 允许在 allowEmpty 启用时提交空字符串，而不是回退到默认值
+const resolveInputPrompt = () => {
+  const promptFromModule = inquirer.prompt && inquirer.prompt.prompts && inquirer.prompt.prompts.input;
+  if (promptFromModule) {
+    return promptFromModule;
+  }
+  const promptFromRoot = inquirer.prompts && inquirer.prompts.input;
+  if (promptFromRoot) {
+    return promptFromRoot;
+  }
+  try {
+    return require('inquirer/lib/prompts/input');
+  } catch (error) {
+    return null;
+  }
+};
+
+const InputPrompt = resolveInputPrompt();
+if (InputPrompt && !InputPrompt.prototype.__allowEmptyPatched) {
+  const originalFilterInput = InputPrompt.prototype.filterInput;
+  const originalRun = InputPrompt.prototype._run;
+
+  InputPrompt.prototype.filterInput = function patchedFilterInput(input) {
+    if (this.opt && this.opt.allowEmpty && this.status === 'touched' && input === '') {
+      return '';
+    }
+    return originalFilterInput.call(this, input);
+  };
+
+  InputPrompt.prototype._run = function patchedRun(cb) {
+    const result = originalRun.call(this, cb);
+
+    if (!this.__defaultPrefilled && this.opt && this.opt.prefillDefault) {
+      const defaultValue = this.opt.default;
+      if (defaultValue !== undefined && defaultValue !== null) {
+        const text = String(defaultValue);
+        if (text.length > 0) {
+          this.__defaultPrefilled = true;
+          this.status = 'touched';
+          this.rl.write(text);
+          this.rl.cursor = text.length;
+          this.render();
+        }
+      }
+    }
+
+    return result;
+  };
+
+  InputPrompt.prototype.__allowEmptyPatched = true;
+}
+
 const ESC_CANCELLED_ERROR_CODE = 'ESC_CANCELLED';
 
 class BaseCommand {
@@ -114,11 +166,10 @@ class BaseCommand {
   }
 
   clearScreen() {
-    if (process.platform === 'win32') {
-      process.stdout.write('\x1b[2J\x1b[0f');
-    } else {
-      process.stdout.write('\x1b[2J\x1b[H');
-    }
+    const clearSequence = process.platform === 'win32'
+      ? '\x1b[3J\x1b[2J\x1b[0f'
+      : '\x1b[3J\x1b[2J\x1b[H';
+    process.stdout.write(clearSequence);
   }
 
   removeESCListener(listener) {
