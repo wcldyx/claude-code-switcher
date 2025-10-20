@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
-const path = require('path');
 const { program } = require('commander');
 const chalk = require('chalk');
 const { main } = require('../src/index');
 const { registry } = require('../src/CommandRegistry');
+const { version } = require('../package.json');
 
 // Set up CLI
 program
   .name('cc')
   .description('Claude Code环境变量快速切换工具')
-  .version('1.0.0');
+  .version(version, '-v, -V, --version', '显示版本号');
 
 // Default command - show provider selection
 program
