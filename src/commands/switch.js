@@ -1,6 +1,7 @@
 const path = require('path');
 const inquirer = require('inquirer');
 const chalk = require('chalk');
+const Choices = require('inquirer/lib/objects/choices');
 const { ConfigManager } = require('../config');
 const { executeWithEnv } = require('../utils/env-launcher');
 const { Logger } = require('../utils/logger');
@@ -8,11 +9,15 @@ const { UIHelper } = require('../utils/ui-helper');
 const { findSettingsConflict, backupSettingsFile, clearConflictKeys, saveSettingsFile } = require('../utils/claude-settings');
 const { BaseCommand } = require('./BaseCommand');
 const { validator } = require('../utils/validator');
+const { ProviderStatusChecker } = require('../utils/provider-status-checker');
 
 class EnvSwitcher extends BaseCommand {
   constructor() {
     super();
     this.configManager = new ConfigManager();
+    this.statusChecker = new ProviderStatusChecker();
+    this.latestStatusMap = {};
+    this.currentPromptContext = null;
   }
 
   async validateProvider(providerName) {
@@ -261,8 +266,9 @@ class EnvSwitcher extends BaseCommand {
       // 并行加载配置和准备界面
       const providers = await this.configManager.ensureLoaded().then(() => this.configManager.listProviders());
       
-      // 显示欢迎界面
-      this.showWelcomeScreen(providers);
+      const initialStatusMap = this._buildInitialStatusMap(providers);
+      // 显示欢迎界面（立即渲染）
+      this.showWelcomeScreen(providers, initialStatusMap, null);
       
       if (providers.length === 0) {
         Logger.warning('暂无配置的供应商');
@@ -270,7 +276,14 @@ class EnvSwitcher extends BaseCommand {
         return;
       }
 
-      const choices = this.createProviderChoices(providers);
+      const choices = this.createProviderChoices(providers, false, initialStatusMap);
+
+      this.currentPromptContext = 'selection';
+
+      // 异步更新供应商状态，不阻塞界面展示
+      if (providers.length > 0) {
+        this._scheduleStatusRefresh(providers);
+      }
       
       // 添加特殊选项
       choices.push(
@@ -296,7 +309,7 @@ class EnvSwitcher extends BaseCommand {
         {
           type: 'list',
           name: 'provider',
-          message: '请选择要切换的供应商:',
+          message: `请选择要切换的供应商 (总计 ${providers.length} 个):`,
           choices,
           default: defaultChoice,
           pageSize: 12
@@ -311,10 +324,16 @@ class EnvSwitcher extends BaseCommand {
         return await this.showProviderSelection();
       }
 
-      return this.handleSelection(answer.provider);
+      const result = await this.handleSelection(answer.provider);
+      this.currentPromptContext = null;
+      return result;
       
     } catch (error) {
       await this.handleError(error, '显示供应商选择');
+    } finally {
+      if (this.currentPromptContext === 'selection') {
+        this.currentPromptContext = null;
+      }
     }
   }
 
@@ -327,24 +346,18 @@ class EnvSwitcher extends BaseCommand {
     }
   }
 
-  showWelcomeScreen(providers) {
+  showWelcomeScreen(providers, statusMap = {}, statusError = null) {
     this.clearScreen();
-    console.log(UIHelper.createTitle('Claude Code 供应商管理器', UIHelper.icons.home));
-    console.log();
     
     if (providers.length > 0) {
-      const currentProvider = providers.find(p => p.current);
-      if (currentProvider) {
-        console.log(UIHelper.createCard('当前供应商', 
-          `${UIHelper.formatProvider(currentProvider)}\n` +
-          `最后使用: ${UIHelper.formatTime(currentProvider.lastUsed)}`,
-          UIHelper.icons.current
-        ));
-      }
-      
       console.log(UIHelper.colors.info(`总共 ${providers.length} 个供应商配置`));
     }
     
+    if (statusError) {
+      console.log();
+      console.log(UIHelper.createCard('状态检测', `检测失败: ${statusError.message}`, UIHelper.icons.warning));
+    }
+
     console.log();
     console.log(UIHelper.createHintLine([
       ['↑ / ↓', '选择供应商'],
@@ -762,8 +775,15 @@ class EnvSwitcher extends BaseCommand {
         return await this.showProviderSelection();
       }
 
-      const choices = this.createProviderChoices(providers, true);
-      
+      const statusMap = this._buildInitialStatusMap(providers);
+      const choices = this.createProviderChoices(providers, true, statusMap);
+
+      this.currentPromptContext = 'manage';
+
+      if (providers.length > 0) {
+        this._scheduleStatusRefresh(providers);
+      }
+
       // 设置 ESC 键监听
       escListener = this.createESCListener(() => {
         Logger.info('返回供应商选择');
@@ -776,7 +796,7 @@ class EnvSwitcher extends BaseCommand {
           {
             type: 'list',
             name: 'action',
-            message: '选择供应商或操作:',
+            message: `选择供应商或操作 (总计 ${providers.length} 个):`,
             choices,
             pageSize: 12
           }
@@ -791,14 +811,21 @@ class EnvSwitcher extends BaseCommand {
       
       this.removeESCListener(escListener);
 
-      return await this.handleManageAction(answer.action);
+      this.currentPromptContext = 'manage';
+      const result = await this.handleManageAction(answer.action);
+      this.currentPromptContext = null;
+      return result;
       
     } catch (error) {
       await this.handleError(error, '显示供应商管理');
+    } finally {
+      if (this.currentPromptContext === 'manage') {
+        this.currentPromptContext = null;
+      }
     }
   }
 
-  createProviderChoices(providers, includeActions = false) {
+  createProviderChoices(providers, includeActions = false, statusMap = {}) {
     const lastUsedProvider = providers.reduce((latest, current) => {
       if (!current || !current.lastUsed) {
         return latest;
@@ -811,7 +838,11 @@ class EnvSwitcher extends BaseCommand {
 
     const choices = providers.map(provider => {
       const isLastUsed = lastUsedProvider && lastUsedProvider.name === provider.name;
-      const label = UIHelper.formatProvider(provider) + (isLastUsed ? UIHelper.colors.muted(' --- 上次使用') : '');
+      const availability = statusMap[provider.name];
+      const icon = this._iconForState(availability?.state);
+      const statusText = this._formatAvailability(availability);
+      const statusLabel = chalk.gray('-') + ' ' + statusText;
+      const label = `${icon} ${UIHelper.formatProvider(provider)}${isLastUsed ? UIHelper.colors.muted(' --- 上次使用') : ''} ${statusLabel}`;
 
       return {
         name: label,
@@ -829,6 +860,143 @@ class EnvSwitcher extends BaseCommand {
     }
 
     return choices;
+  }
+
+  _iconForState(state) {
+    if (state === 'online') {
+      return '🟢';
+    }
+    if (state === 'degraded') {
+      return '🟡';
+    }
+    if (state === 'offline') {
+      return '🔴';
+    }
+    if (state === 'pending') {
+      return '⏳';
+    }
+    return '⚪';
+  }
+
+  _formatAvailability(availability) {
+    if (!availability) {
+      return chalk.gray('测试中...');
+    }
+    if (availability.state === 'online') {
+      return chalk.green(availability.label || '可用');
+    }
+    if (availability.state === 'degraded') {
+      return chalk.yellow(availability.label || '有限可用');
+    }
+    if (availability.state === 'offline') {
+      return chalk.red(availability.label || '不可用');
+    }
+    if (availability.state === 'pending') {
+      return chalk.gray(availability.label || '测试中...');
+    }
+    return chalk.gray(availability.label || '未知');
+  }
+
+  _buildInitialStatusMap(providers) {
+    const cached = this.latestStatusMap || {};
+    const map = {};
+    providers.forEach(provider => {
+      map[provider.name] = cached[provider.name] || {
+        state: 'pending',
+        label: '测试中...',
+        latency: null
+      };
+    });
+    return map;
+  }
+
+  _buildErrorStatusMap(providers, error) {
+    const message = error ? `检测失败: ${error.message}` : '检测失败';
+    const map = {};
+    providers.forEach(provider => {
+      map[provider.name] = {
+        state: 'offline',
+        label: message,
+        latency: null
+      };
+    });
+    return map;
+  }
+
+  _scheduleStatusRefresh(providers) {
+    this.statusChecker
+      .checkAll(providers)
+      .then(statusMap => {
+        this.latestStatusMap = statusMap;
+        this._applyStatusUpdate(providers, statusMap, null);
+      })
+      .catch(error => {
+        Logger.error(`供应商状态检测失败: ${error.message}`);
+        const fallback = this._buildErrorStatusMap(providers, error);
+        this._applyStatusUpdate(providers, fallback, error);
+      });
+  }
+
+  _applyStatusUpdate(providers, statusMap, error) {
+    if (this.currentPromptContext !== 'selection' && this.currentPromptContext !== 'manage') {
+      return;
+    }
+
+    const activePrompt = this.activePrompt?.promise?.ui?.activePrompt;
+    if (!activePrompt || activePrompt.status === 'answered') {
+      return;
+    }
+
+    const includeActions = this.currentPromptContext === 'manage';
+    const updatedChoicesBase = this.createProviderChoices(providers, includeActions, statusMap);
+    const updatedChoices = [...updatedChoicesBase];
+
+    if (!includeActions) {
+      updatedChoices.push(
+        new inquirer.Separator(),
+        { name: `${UIHelper.icons.add} 添加新供应商`, value: '__ADD__' },
+        { name: `${UIHelper.icons.list} 供应商管理 (编辑/删除)`, value: '__MANAGE__' },
+        { name: `${UIHelper.icons.config} 打开配置文件`, value: '__OPEN_CONFIG__' },
+        { name: `${UIHelper.icons.error} 退出`, value: '__EXIT__' }
+      );
+    }
+
+    const previousValue = (() => {
+      try {
+        return activePrompt.opt.choices?.getChoice(activePrompt.selected)?.value ?? null;
+      } catch (err) {
+        return null;
+      }
+    })();
+
+    activePrompt.opt.choices = new Choices(updatedChoices, activePrompt.answers);
+
+    if (previousValue != null) {
+      const newIndex = activePrompt.opt.choices.realChoices.findIndex(choice => choice.value === previousValue);
+      if (newIndex >= 0) {
+        activePrompt.selected = newIndex;
+      } else if (activePrompt.selected >= activePrompt.opt.choices.realLength) {
+        activePrompt.selected = Math.max(activePrompt.opt.choices.realLength - 1, 0);
+      }
+    } else if (activePrompt.selected >= activePrompt.opt.choices.realLength) {
+      activePrompt.selected = Math.max(activePrompt.opt.choices.realLength - 1, 0);
+    }
+
+    if (error) {
+      if (this.currentPromptContext === 'selection') {
+        activePrompt.opt.message = `请选择要切换的供应商 (总计 ${providers.length} 个，状态检测失败，使用默认配置):`;
+      } else if (this.currentPromptContext === 'manage') {
+        activePrompt.opt.message = `选择供应商或操作 (总计 ${providers.length} 个，状态检测失败，使用默认配置):`;
+      }
+    } else {
+      if (this.currentPromptContext === 'selection') {
+        activePrompt.opt.message = `请选择要切换的供应商 (总计 ${providers.length} 个):`;
+      } else if (this.currentPromptContext === 'manage') {
+        activePrompt.opt.message = `选择供应商或操作 (总计 ${providers.length} 个):`;
+      }
+    }
+
+    activePrompt.render();
   }
 
   async handleManageAction(action) {

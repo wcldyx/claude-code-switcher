@@ -1,10 +1,12 @@
 const chalk = require('chalk');
 const { ConfigManager } = require('../config');
 const { Logger } = require('../utils/logger');
+const { ProviderStatusChecker } = require('../utils/provider-status-checker');
 
 class ProviderLister {
   constructor() {
     this.configManager = new ConfigManager();
+    this.statusChecker = new ProviderStatusChecker();
   }
 
   async list() {
@@ -12,6 +14,7 @@ class ProviderLister {
       await this.configManager.ensureLoaded();
       const providers = this.configManager.listProviders();
       const currentProvider = this.configManager.getCurrentProvider();
+      const statusMap = await this.statusChecker.checkAll(providers);
 
       if (providers.length === 0) {
         Logger.warning('暂无配置的供应商');
@@ -25,9 +28,12 @@ class ProviderLister {
       providers.forEach((provider, index) => {
         const isCurrent = provider.name === currentProvider?.name;
         const status = isCurrent ? '✅' : '🔹';
+        const availability = statusMap[provider.name] || { state: 'unknown', label: '未知', latency: null };
+        const availabilityIcon = this._iconForState(availability.state);
+        const availabilityText = this._formatAvailability(availability);
         const nameColor = isCurrent ? chalk.green : chalk.white;
         
-        console.log(`${status} ${nameColor(provider.name)} (${provider.displayName})`);
+        console.log(`${status} ${availabilityIcon} ${nameColor(provider.name)} (${provider.displayName}) - ${availabilityText}`);
         console.log(chalk.gray(`   URL: ${provider.baseUrl}`));
         console.log(chalk.gray(`   Token: ${provider.authToken}`));
         if (provider.launchArgs && provider.launchArgs.length > 0) {
@@ -59,6 +65,35 @@ class ProviderLister {
       Logger.error(`获取供应商列表失败: ${error.message}`);
       throw error;
     }
+  }
+
+  _iconForState(state) {
+    if (state === 'online') {
+      return '🟢';
+    }
+    if (state === 'degraded') {
+      return '🟡';
+    }
+    if (state === 'offline') {
+      return '🔴';
+    }
+    return '⚪';
+  }
+
+  _formatAvailability(availability) {
+    if (!availability) {
+      return '未知';
+    }
+    if (availability.state === 'online') {
+      return chalk.green(availability.label);
+    }
+    if (availability.state === 'degraded') {
+      return chalk.yellow(availability.label);
+    }
+    if (availability.state === 'offline') {
+      return chalk.red(availability.label);
+    }
+    return chalk.gray(availability.label || '未知');
   }
 }
 
