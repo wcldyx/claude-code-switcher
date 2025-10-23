@@ -18,6 +18,7 @@ class EnvSwitcher extends BaseCommand {
     this.statusChecker = new ProviderStatusChecker();
     this.latestStatusMap = {};
     this.currentPromptContext = null;
+    this.activeStatusRefresh = null;
   }
 
   async validateProvider(providerName) {
@@ -282,7 +283,7 @@ class EnvSwitcher extends BaseCommand {
 
       // 异步更新供应商状态，不阻塞界面展示
       if (providers.length > 0) {
-        this._scheduleStatusRefresh(providers);
+        this._startStatusRefresh(providers);
       }
       
       // 添加特殊选项
@@ -319,6 +320,8 @@ class EnvSwitcher extends BaseCommand {
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
 
+      this._cancelStatusRefresh();
+
       if (answer.provider === '__OPEN_CONFIG__') {
         await this.openConfigFile();
         return await this.showProviderSelection();
@@ -334,6 +337,7 @@ class EnvSwitcher extends BaseCommand {
       if (this.currentPromptContext === 'selection') {
         this.currentPromptContext = null;
       }
+      this._cancelStatusRefresh();
     }
   }
 
@@ -781,7 +785,7 @@ class EnvSwitcher extends BaseCommand {
       this.currentPromptContext = 'manage';
 
       if (providers.length > 0) {
-        this._scheduleStatusRefresh(providers);
+        this._startStatusRefresh(providers);
       }
 
       // 设置 ESC 键监听
@@ -811,7 +815,8 @@ class EnvSwitcher extends BaseCommand {
       
       this.removeESCListener(escListener);
 
-      this.currentPromptContext = 'manage';
+      this._cancelStatusRefresh();
+
       const result = await this.handleManageAction(answer.action);
       this.currentPromptContext = null;
       return result;
@@ -822,6 +827,7 @@ class EnvSwitcher extends BaseCommand {
       if (this.currentPromptContext === 'manage') {
         this.currentPromptContext = null;
       }
+      this._cancelStatusRefresh();
     }
   }
 
@@ -923,21 +929,48 @@ class EnvSwitcher extends BaseCommand {
     return map;
   }
 
-  _scheduleStatusRefresh(providers) {
+  _startStatusRefresh(providers) {
+    this._cancelStatusRefresh();
+
+    const refreshToken = Symbol('statusRefresh');
+    this.activeStatusRefresh = refreshToken;
+
+    const latestMap = { ...this.latestStatusMap };
     this.statusChecker
-      .checkAll(providers)
-      .then(statusMap => {
-        this.latestStatusMap = statusMap;
-        this._applyStatusUpdate(providers, statusMap, null);
+      .checkAllStreaming(providers, (providerName, status) => {
+        if (this.activeStatusRefresh !== refreshToken) {
+          return;
+        }
+        latestMap[providerName] = status;
+        this.latestStatusMap = latestMap;
+        this._applyIncrementalStatus(providerName, status, refreshToken);
+      })
+      .then(finalMap => {
+        if (this.activeStatusRefresh !== refreshToken) {
+          return;
+        }
+        this.latestStatusMap = finalMap;
       })
       .catch(error => {
+        if (this.activeStatusRefresh !== refreshToken) {
+          return;
+        }
         Logger.error(`供应商状态检测失败: ${error.message}`);
         const fallback = this._buildErrorStatusMap(providers, error);
-        this._applyStatusUpdate(providers, fallback, error);
+        Object.assign(latestMap, fallback);
+        this.latestStatusMap = latestMap;
+        this._applyStatusUpdate(providers, fallback, error, refreshToken);
       });
   }
 
-  _applyStatusUpdate(providers, statusMap, error) {
+  _cancelStatusRefresh() {
+    this.activeStatusRefresh = null;
+  }
+
+  _applyStatusUpdate(providers, statusMap, error, refreshToken = null) {
+    if (refreshToken && this.activeStatusRefresh !== refreshToken) {
+      return;
+    }
     if (this.currentPromptContext !== 'selection' && this.currentPromptContext !== 'manage') {
       return;
     }
@@ -994,6 +1027,65 @@ class EnvSwitcher extends BaseCommand {
       } else if (this.currentPromptContext === 'manage') {
         activePrompt.opt.message = `选择供应商或操作 (总计 ${providers.length} 个):`;
       }
+    }
+
+    activePrompt.render();
+  }
+
+  _applyIncrementalStatus(providerName, status, refreshToken) {
+    if (refreshToken && this.activeStatusRefresh !== refreshToken) {
+      return;
+    }
+    if (this.currentPromptContext !== 'selection' && this.currentPromptContext !== 'manage') {
+      return;
+    }
+
+    const activePrompt = this.activePrompt?.promise?.ui?.activePrompt;
+    if (!activePrompt || activePrompt.status === 'answered') {
+      return;
+    }
+
+    const includeActions = this.currentPromptContext === 'manage';
+    const providers = this.configManager.listProviders();
+    const statusMap = this.latestStatusMap || {};
+    const updatedChoicesBase = this.createProviderChoices(providers, includeActions, statusMap);
+    const updatedChoices = [...updatedChoicesBase];
+
+    if (!includeActions) {
+      updatedChoices.push(
+        new inquirer.Separator(),
+        { name: `${UIHelper.icons.add} 添加新供应商`, value: '__ADD__' },
+        { name: `${UIHelper.icons.list} 供应商管理 (编辑/删除)`, value: '__MANAGE__' },
+        { name: `${UIHelper.icons.config} 打开配置文件`, value: '__OPEN_CONFIG__' },
+        { name: `${UIHelper.icons.error} 退出`, value: '__EXIT__' }
+      );
+    }
+
+    const previousValue = (() => {
+      try {
+        return activePrompt.opt.choices?.getChoice(activePrompt.selected)?.value ?? null;
+      } catch (err) {
+        return null;
+      }
+    })();
+
+    activePrompt.opt.choices = new Choices(updatedChoices, activePrompt.answers);
+
+    if (previousValue != null) {
+      const newIndex = activePrompt.opt.choices.realChoices.findIndex(choice => choice.value === previousValue);
+      if (newIndex >= 0) {
+        activePrompt.selected = newIndex;
+      } else if (activePrompt.selected >= activePrompt.opt.choices.realLength) {
+        activePrompt.selected = Math.max(activePrompt.opt.choices.realLength - 1, 0);
+      }
+    } else if (activePrompt.selected >= activePrompt.opt.choices.realLength) {
+      activePrompt.selected = Math.max(activePrompt.opt.choices.realLength - 1, 0);
+    }
+
+    if (this.currentPromptContext === 'selection') {
+      activePrompt.opt.message = `请选择要切换的供应商 (总计 ${providers.length} 个):`;
+    } else if (this.currentPromptContext === 'manage') {
+      activePrompt.opt.message = `选择供应商或操作 (总计 ${providers.length} 个):`;
     }
 
     activePrompt.render();

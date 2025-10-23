@@ -7,7 +7,7 @@
 ## 📸 界面预览
 
 ### 主界面 - 供应商选择
-![供应商选择界面](./docs/images/WindowsTerminal.exe_20251019_214749.png)
+![供应商选择界面](./docs/images/WindowsTerminal.exe_20251023_092310.png)
 
 ### 启动配置界面
 ![启动配置界面](./docs/images/WindowsTerminal.exe_20251019_214821.png)

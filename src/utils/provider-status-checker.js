@@ -57,12 +57,34 @@ class ProviderStatusChecker {
   }
 
   async checkAll(providers) {
-    const tasks = providers.map(async provider => {
-      const status = await this.check(provider);
-      return [provider.name, status];
-    });
-    const entries = await Promise.all(tasks);
+    const entries = await Promise.all(
+      providers.map(async provider => {
+        const status = await this.check(provider);
+        return [provider.name, status];
+      })
+    );
     return Object.fromEntries(entries);
+  }
+
+  checkAllStreaming(providers, onUpdate) {
+    const results = {};
+    const tasks = providers.map(async provider => {
+      try {
+        const status = await this.check(provider);
+        results[provider.name] = status;
+        if (typeof onUpdate === 'function') {
+          onUpdate(provider.name, status, null);
+        }
+      } catch (error) {
+        const fallback = this._result('offline', `检测失败: ${error.message}`, null);
+        results[provider.name] = fallback;
+        if (typeof onUpdate === 'function') {
+          onUpdate(provider.name, fallback, error);
+        }
+      }
+    });
+
+    return Promise.all(tasks).then(() => results);
   }
 
   _createClient(provider) {
