@@ -1,6 +1,6 @@
 {
   "name": "@wcldyx/claude-code-switcher",
-  "version": "1.0.10",
+  "version": "1.0.14",
   "description": "Claude Code环境变量快速切换工具 - A powerful CLI tool for switching Claude Code environment configurations and API providers",
   "main": "src/index.js",
   "bin": {
@@ -46,11 +46,12 @@
   },
   "homepage": "https://github.com/wcldyx/claude-code-switcher#readme",
   "dependencies": {
-    "commander": "^9.4.1",
-    "inquirer": "^8.2.6",
-    "fs-extra": "^11.1.1",
+    "@anthropic-ai/sdk": "^0.67.0",
     "chalk": "^4.1.2",
+    "commander": "^9.4.1",
     "cross-spawn": "^7.0.3",
+    "fs-extra": "^11.1.1",
+    "inquirer": "^8.2.6",
     "supports-color": "^9.4.0"
   },
   "devDependencies": {

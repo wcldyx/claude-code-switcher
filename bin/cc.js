@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-const path = require('path');
 const { program } = require('commander');
 const chalk = require('chalk');
 const { main } = require('../src/index');
@@ -12,7 +11,7 @@ const { checkForUpdates } = require('../src/utils/update-checker');
 program
   .name('cc')
   .description('Claude Code环境变量快速切换工具')
-  .version(pkg.version);
+  .version(pkg.version, '-v, -V, --version', '显示版本号');
 
 // Check for updates before any command runs
 program.hook('preAction', async () => {
