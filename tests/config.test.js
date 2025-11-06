@@ -175,12 +175,12 @@ describe('validator', () => {
     test('should accept valid tokens', () => {
       expect(validator.validateToken('sk-ant-123456')).toBeNull();
       expect(validator.validateToken('test-token-123456')).toBeNull();
+      expect(validator.validateToken('a'.repeat(5000))).toBeNull();
     });
 
     test('should reject invalid tokens', () => {
       expect(validator.validateToken('')).toBe('Token不能为空');
       expect(validator.validateToken('short')).toBe('Token长度不能少于10个字符');
-      expect(validator.validateToken('a'.repeat(501))).toBe('Token长度不能超过500个字符');
     });
   });
 

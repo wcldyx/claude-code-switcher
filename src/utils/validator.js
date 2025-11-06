@@ -59,10 +59,6 @@ const validator = {
       return 'Token长度不能少于10个字符';
     }
     
-    if (token.length > 500) {
-      return 'Token长度不能超过500个字符';
-    }
-    
     return null;
   },
 

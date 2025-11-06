@@ -5,12 +5,19 @@ const { program } = require('commander');
 const chalk = require('chalk');
 const { main } = require('../src/index');
 const { registry } = require('../src/CommandRegistry');
+const pkg = require('../package.json');
+const { checkForUpdates } = require('../src/utils/update-checker');
 
 // Set up CLI
 program
   .name('cc')
   .description('Claude Code环境变量快速切换工具')
-  .version('1.0.0');
+  .version(pkg.version);
+
+// Check for updates before any command runs
+program.hook('preAction', async () => {
+  await checkForUpdates({ packageName: pkg.name, currentVersion: pkg.version });
+});
 
 // Default command - show provider selection
 program
