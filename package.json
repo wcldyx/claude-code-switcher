@@ -1,6 +1,6 @@
 {
   "name": "@wcldyx/claude-code-switcher",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Claude Code环境变量快速切换工具 - A powerful CLI tool for switching Claude Code environment configurations and API providers",
   "main": "src/index.js",
   "bin": {
