@@ -15,7 +15,7 @@ program
 
 // Check for updates before any command runs
 program.hook('preAction', async () => {
-  await checkForUpdates({ packageName: pkg.name, currentVersion: pkg.version });
+  checkForUpdates({ packageName: pkg.name, currentVersion: pkg.version });
 });
 
 // Default command - show provider selection

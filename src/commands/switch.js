@@ -19,6 +19,9 @@ class EnvSwitcher extends BaseCommand {
     this.latestStatusMap = {};
     this.currentPromptContext = null;
     this.activeStatusRefresh = null;
+    this.pendingStatusUpdates = new Map();
+    this.statusFlushTimer = null;
+    this.statusFlushDelayMs = 300;
   }
 
   async validateProvider(providerName) {
@@ -943,7 +946,7 @@ class EnvSwitcher extends BaseCommand {
         }
         latestMap[providerName] = status;
         this.latestStatusMap = latestMap;
-        this._applyIncrementalStatus(providerName, status, refreshToken);
+        this._queueStatusUpdate(providerName, status, refreshToken, providers);
       })
       .then(finalMap => {
         if (this.activeStatusRefresh !== refreshToken) {
@@ -965,6 +968,41 @@ class EnvSwitcher extends BaseCommand {
 
   _cancelStatusRefresh() {
     this.activeStatusRefresh = null;
+    if (this.statusFlushTimer) {
+      clearTimeout(this.statusFlushTimer);
+      this.statusFlushTimer = null;
+    }
+    this.pendingStatusUpdates.clear();
+  }
+
+  _queueStatusUpdate(providerName, status, refreshToken, providers) {
+    if (refreshToken && this.activeStatusRefresh !== refreshToken) {
+      return;
+    }
+    this.pendingStatusUpdates.set(providerName, status);
+    if (this.statusFlushTimer) {
+      return;
+    }
+    this.statusFlushTimer = setTimeout(() => {
+      this._flushStatusUpdates(refreshToken, providers);
+    }, this.statusFlushDelayMs);
+  }
+
+  _flushStatusUpdates(refreshToken, providers) {
+    if (this.statusFlushTimer) {
+      clearTimeout(this.statusFlushTimer);
+      this.statusFlushTimer = null;
+    }
+    if (refreshToken && this.activeStatusRefresh !== refreshToken) {
+      this.pendingStatusUpdates.clear();
+      return;
+    }
+    if (this.pendingStatusUpdates.size === 0) {
+      return;
+    }
+    const statusMap = { ...this.latestStatusMap };
+    this.pendingStatusUpdates.clear();
+    this._applyStatusUpdate(providers, statusMap, null, refreshToken);
   }
 
   _applyStatusUpdate(providers, statusMap, error, refreshToken = null) {
@@ -1027,65 +1065,6 @@ class EnvSwitcher extends BaseCommand {
       } else if (this.currentPromptContext === 'manage') {
         activePrompt.opt.message = `选择供应商或操作 (总计 ${providers.length} 个):`;
       }
-    }
-
-    activePrompt.render();
-  }
-
-  _applyIncrementalStatus(providerName, status, refreshToken) {
-    if (refreshToken && this.activeStatusRefresh !== refreshToken) {
-      return;
-    }
-    if (this.currentPromptContext !== 'selection' && this.currentPromptContext !== 'manage') {
-      return;
-    }
-
-    const activePrompt = this.activePrompt?.promise?.ui?.activePrompt;
-    if (!activePrompt || activePrompt.status === 'answered') {
-      return;
-    }
-
-    const includeActions = this.currentPromptContext === 'manage';
-    const providers = this.configManager.listProviders();
-    const statusMap = this.latestStatusMap || {};
-    const updatedChoicesBase = this.createProviderChoices(providers, includeActions, statusMap);
-    const updatedChoices = [...updatedChoicesBase];
-
-    if (!includeActions) {
-      updatedChoices.push(
-        new inquirer.Separator(),
-        { name: `${UIHelper.icons.add} 添加新供应商`, value: '__ADD__' },
-        { name: `${UIHelper.icons.list} 供应商管理 (编辑/删除)`, value: '__MANAGE__' },
-        { name: `${UIHelper.icons.config} 打开配置文件`, value: '__OPEN_CONFIG__' },
-        { name: `${UIHelper.icons.error} 退出`, value: '__EXIT__' }
-      );
-    }
-
-    const previousValue = (() => {
-      try {
-        return activePrompt.opt.choices?.getChoice(activePrompt.selected)?.value ?? null;
-      } catch (err) {
-        return null;
-      }
-    })();
-
-    activePrompt.opt.choices = new Choices(updatedChoices, activePrompt.answers);
-
-    if (previousValue != null) {
-      const newIndex = activePrompt.opt.choices.realChoices.findIndex(choice => choice.value === previousValue);
-      if (newIndex >= 0) {
-        activePrompt.selected = newIndex;
-      } else if (activePrompt.selected >= activePrompt.opt.choices.realLength) {
-        activePrompt.selected = Math.max(activePrompt.opt.choices.realLength - 1, 0);
-      }
-    } else if (activePrompt.selected >= activePrompt.opt.choices.realLength) {
-      activePrompt.selected = Math.max(activePrompt.opt.choices.realLength - 1, 0);
-    }
-
-    if (this.currentPromptContext === 'selection') {
-      activePrompt.opt.message = `请选择要切换的供应商 (总计 ${providers.length} 个):`;
-    } else if (this.currentPromptContext === 'manage') {
-      activePrompt.opt.message = `选择供应商或操作 (总计 ${providers.length} 个):`;
     }
 
     activePrompt.render();
