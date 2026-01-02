@@ -1,19 +1,21 @@
-const spawn = require('cross-spawn');
+const spawn = require("cross-spawn");
+const { execFileSync } = require("child_process");
 
 function clearTerminal() {
-  if (!process.stdout || typeof process.stdout.write !== 'function') {
+  if (!process.stdout || typeof process.stdout.write !== "function") {
     return;
   }
 
   try {
-    process.stdout.write('\x1bc');
+    process.stdout.write("\x1bc");
   } catch (error) {
     // 某些终端可能不支持 RIS 序列，忽略即可
   }
 
-  const sequence = process.platform === 'win32'
-    ? '\x1b[3J\x1b[2J\x1b[0f'
-    : '\x1b[3J\x1b[2J\x1b[H';
+  const sequence =
+    process.platform === "win32"
+      ? "\x1b[3J\x1b[2J\x1b[0f"
+      : "\x1b[3J\x1b[2J\x1b[H";
   try {
     process.stdout.write(sequence);
   } catch (error) {
@@ -24,9 +26,9 @@ function clearTerminal() {
 function buildEnvVariables(config) {
   const env = { ...process.env };
 
-  if (config.authMode === 'oauth_token') {
+  if (config.authMode === "oauth_token") {
     env.CLAUDE_CODE_OAUTH_TOKEN = config.authToken;
-  } else if (config.authMode === 'api_key') {
+  } else if (config.authMode === "api_key") {
     env.ANTHROPIC_BASE_URL = config.baseUrl;
     env.ANTHROPIC_API_KEY = config.authToken;
   } else {
@@ -45,6 +47,25 @@ function buildEnvVariables(config) {
   return env;
 }
 
+function getFreshWindowsPath(env) {
+  try {
+    const output = execFileSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-Command",
+        "$m=[Environment]::GetEnvironmentVariable('Path','Machine');$u=[Environment]::GetEnvironmentVariable('Path','User');if($m -and $u){$m+';'+$u}elseif($m){$m}else{$u}",
+      ],
+      { encoding: "utf8", env }
+    );
+
+    const freshPath = String(output || "").trim();
+    return freshPath || null;
+  } catch {
+    return null;
+  }
+}
+
 async function executeWithEnv(config, launchArgs = []) {
   const env = buildEnvVariables(config);
   const args = [...launchArgs];
@@ -52,21 +73,55 @@ async function executeWithEnv(config, launchArgs = []) {
   clearTerminal();
 
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', args, {
-      stdio: 'inherit',
-      env,
-      shell: true
-    });
+    const isWindows = process.platform === "win32";
+    const runtimeEnv = { ...env };
 
-    child.on('close', (code) => {
+    if (isWindows) {
+      const freshPath = getFreshWindowsPath(runtimeEnv);
+      if (freshPath) {
+        runtimeEnv.Path = freshPath;
+        runtimeEnv.PATH = freshPath;
+      }
+    }
+
+    const forcedClaudePath =
+      isWindows &&
+      runtimeEnv.CC_CLAUDE_PATH &&
+      String(runtimeEnv.CC_CLAUDE_PATH).trim();
+
+    const child = forcedClaudePath
+      ? spawn(forcedClaudePath, args, {
+          stdio: "inherit",
+          env: runtimeEnv,
+          shell: false,
+        })
+      : spawn(
+          isWindows ? "cmd.exe" : "claude",
+          isWindows ? ["/s", "/c", "claude", ...args] : args,
+          {
+            stdio: "inherit",
+            env: runtimeEnv,
+            shell: isWindows ? false : true,
+          }
+        );
+
+    child.on("close", (code) => {
       if (code === 0) {
         resolve();
       } else {
+        if (isWindows && code === 9009) {
+          reject(
+            new Error(
+              "未找到 claude 命令，请先安装 @anthropic-ai/claude-code 或确保 claude 已加入 PATH。"
+            )
+          );
+          return;
+        }
         reject(new Error(`Claude Code 退出，代码: ${code}`));
       }
     });
 
-    child.on('error', reject);
+    child.on("error", reject);
   });
 }
 
