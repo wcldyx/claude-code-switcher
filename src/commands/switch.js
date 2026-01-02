@@ -38,7 +38,7 @@ class EnvSwitcher extends BaseCommand {
       this.clearScreen();
       const provider = await this.validateProvider(providerName);
       const availableArgs = this.getAvailableLaunchArgs();
-      
+
       console.log(UIHelper.createTitle('启动配置', UIHelper.icons.launch));
       console.log();
       console.log(UIHelper.createCard('供应商', UIHelper.formatProvider(provider), UIHelper.icons.info));
@@ -51,13 +51,13 @@ class EnvSwitcher extends BaseCommand {
         ['ESC', '返回供应商选择']
       ]));
       console.log();
-      
+
       // 设置 ESC 键监听
       const escListener = this.createESCListener(() => {
         Logger.info('返回供应商选择');
         this.showProviderSelection();
       }, '返回供应商选择');
-      
+
       // 显示启动参数选择界面
       const choices = [
         {
@@ -89,12 +89,12 @@ class EnvSwitcher extends BaseCommand {
         }
         throw error;
       }
-      
+
       this.removeESCListener(escListener);
 
       // 选择参数后直接启动
       await this.launchProvider(provider, answers.selectedArgs);
-      
+
     } catch (error) {
       await this.handleError(error, '选择启动参数');
     }
@@ -215,52 +215,39 @@ class EnvSwitcher extends BaseCommand {
         console.log(UIHelper.createCard('启动参数', selectedLaunchArgs.join(', '), UIHelper.icons.settings));
       }
       console.log();
-      
+
       // 显示进度
       const loadingInterval = UIHelper.createLoadingAnimation('正在设置环境...');
-      
+
       try {
         // 设置为当前供应商
         await this.configManager.setCurrentProvider(provider.name);
-        
+
         // 更新使用统计
         provider.usageCount = (provider.usageCount || 0) + 1;
         provider.lastUsed = new Date().toISOString();
         await this.configManager.save();
-        
+
         UIHelper.clearLoadingAnimation(loadingInterval);
-        
+
         console.log(UIHelper.createCard('准备就绪', '环境配置完成，正在启动 Claude Code...', UIHelper.icons.success));
         console.log();
-        
+
         // 设置环境变量并启动Claude Code
         await executeWithEnv(provider, selectedLaunchArgs);
-        
+
       } catch (error) {
         UIHelper.clearLoadingAnimation(loadingInterval);
         throw error;
       }
-      
+
     } catch (error) {
       await this.handleError(error, '启动供应商');
     }
   }
 
   getAvailableLaunchArgs() {
-    return [
-      {
-        name: '--continue',
-        label: '继续上次对话',
-        description: '恢复上次的对话记录',
-        checked: false
-      },
-      {
-        name: '--dangerously-skip-permissions',
-        label: '最高权限',
-        description: '仅在沙盒环境中使用',
-        checked: false
-      }
-    ];
+    return validator.getAvailableLaunchArgs();
   }
 
   // getArgDescription 方法已被移除，直接使用 arg.description
@@ -269,11 +256,11 @@ class EnvSwitcher extends BaseCommand {
     try {
       // 并行加载配置和准备界面
       const providers = await this.configManager.ensureLoaded().then(() => this.configManager.listProviders());
-      
+
       const initialStatusMap = this._buildInitialStatusMap(providers);
       // 显示欢迎界面（立即渲染）
       this.showWelcomeScreen(providers, initialStatusMap, null);
-      
+
       if (providers.length === 0) {
         Logger.warning('暂无配置的供应商');
         Logger.info('请先运行 "cc add" 添加供应商配置');
@@ -288,7 +275,7 @@ class EnvSwitcher extends BaseCommand {
       if (providers.length > 0) {
         this._startStatusRefresh(providers);
       }
-      
+
       // 添加特殊选项
       choices.push(
         new inquirer.Separator(),
@@ -319,7 +306,7 @@ class EnvSwitcher extends BaseCommand {
           pageSize: 12
         }
       ]);
-      
+
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
 
@@ -333,7 +320,7 @@ class EnvSwitcher extends BaseCommand {
       const result = await this.handleSelection(answer.provider);
       this.currentPromptContext = null;
       return result;
-      
+
     } catch (error) {
       await this.handleError(error, '显示供应商选择');
     } finally {
@@ -355,11 +342,11 @@ class EnvSwitcher extends BaseCommand {
 
   showWelcomeScreen(providers, statusMap = {}, statusError = null) {
     this.clearScreen();
-    
+
     if (providers.length > 0) {
       console.log(UIHelper.colors.info(`总共 ${providers.length} 个供应商配置`));
     }
-    
+
     if (statusError) {
       console.log();
       console.log(UIHelper.createCard('状态检测', `检测失败: ${statusError.message}`, UIHelper.icons.warning));
@@ -432,7 +419,7 @@ class EnvSwitcher extends BaseCommand {
       }
       throw error;
     }
-    
+
     this.removeESCListener(escListener);
 
     switch (answer.setting) {
@@ -460,13 +447,13 @@ class EnvSwitcher extends BaseCommand {
       ['ESC', '返回快速设置']
     ]));
     console.log();
-    
+
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
       Logger.info('返回快速设置');
       this.showQuickSettings();
     }, '返回快速设置');
-    
+
     try {
       await this.prompt([
         {
@@ -482,7 +469,7 @@ class EnvSwitcher extends BaseCommand {
       }
       throw error;
     }
-    
+
     this.removeESCListener(escListener);
 
     return await this.showQuickSettings();
@@ -499,13 +486,13 @@ class EnvSwitcher extends BaseCommand {
       ['ESC', '返回快速设置']
     ]));
     console.log();
-    
+
     // 设置 ESC 键监听
     const escListener = this.createESCListener(() => {
       Logger.info('返回快速设置');
       this.showQuickSettings();
     }, '返回快速设置');
-    
+
     try {
       await this.prompt([
         {
@@ -521,7 +508,7 @@ class EnvSwitcher extends BaseCommand {
       }
       throw error;
     }
-    
+
     this.removeESCListener(escListener);
 
     return await this.showQuickSettings();
@@ -558,12 +545,12 @@ class EnvSwitcher extends BaseCommand {
       }
       throw error;
     }
-    
+
     this.removeESCListener(escListener);
 
     await this.configManager.load();
     const providers = this.configManager.listProviders();
-    const searchResults = providers.filter(p => 
+    const searchResults = providers.filter(p =>
       p.name.toLowerCase().includes(answer.search.toLowerCase()) ||
       p.displayName.toLowerCase().includes(answer.search.toLowerCase())
     );
@@ -619,7 +606,7 @@ class EnvSwitcher extends BaseCommand {
       }
       throw error;
     }
-    
+
     this.removeESCListener(escListener2);
 
     if (result.provider === 'back') {
@@ -633,7 +620,7 @@ class EnvSwitcher extends BaseCommand {
     await this.configManager.load();
     const providers = this.configManager.listProviders();
     this.clearScreen();
-    
+
     const totalProviders = providers.length;
     const currentProvider = providers.find(p => p.current);
     const totalUsage = providers.reduce((sum, p) => sum + (p.usageCount || 0), 0);
@@ -641,7 +628,7 @@ class EnvSwitcher extends BaseCommand {
 
     console.log(UIHelper.createTitle('使用统计', UIHelper.icons.info));
     console.log();
-    
+
     const stats = [
       ['总供应商数', totalProviders],
       ['当前供应商', currentProvider ? currentProvider.displayName : '无'],
@@ -649,7 +636,7 @@ class EnvSwitcher extends BaseCommand {
       ['最常用供应商', mostUsed ? mostUsed.displayName : '无'],
       ['创建时间', providers.length > 0 ? UIHelper.formatTime(providers[0].createdAt) : '无']
     ];
-    
+
     console.log(UIHelper.createTable(['项目', '数据'], stats));
     console.log();
     console.log(UIHelper.createHintLine([
@@ -663,7 +650,7 @@ class EnvSwitcher extends BaseCommand {
       Logger.info('返回快速设置');
       this.showQuickSettings();
     }, '返回快速设置');
-    
+
     try {
       await this.prompt([
         {
@@ -679,7 +666,7 @@ class EnvSwitcher extends BaseCommand {
       }
       throw error;
     }
-    
+
     this.removeESCListener(escListener);
 
     return await this.showQuickSettings();
@@ -773,10 +760,10 @@ class EnvSwitcher extends BaseCommand {
         ['ESC', '返回主菜单']
       ]));
       console.log();
-      
+
       console.log(UIHelper.createTitle('供应商管理', UIHelper.icons.list));
       console.log();
-      
+
       if (providers.length === 0) {
         console.log(UIHelper.createCard('提示', '暂无配置的供应商\n请先运行 "cc add" 添加供应商配置', UIHelper.icons.warning));
         return await this.showProviderSelection();
@@ -815,7 +802,7 @@ class EnvSwitcher extends BaseCommand {
         }
         throw error;
       }
-      
+
       this.removeESCListener(escListener);
 
       this._cancelStatusRefresh();
@@ -823,7 +810,7 @@ class EnvSwitcher extends BaseCommand {
       const result = await this.handleManageAction(answer.action);
       this.currentPromptContext = null;
       return result;
-      
+
     } catch (error) {
       await this.handleError(error, '显示供应商管理');
     } finally {
@@ -1088,7 +1075,7 @@ class EnvSwitcher extends BaseCommand {
     try {
       const provider = await this.validateProvider(providerName);
       this.clearScreen();
-      
+
       console.log(UIHelper.createTitle('供应商详情', UIHelper.icons.info));
       console.log();
       console.log(UIHelper.createHintLine([
@@ -1097,7 +1084,7 @@ class EnvSwitcher extends BaseCommand {
         ['ESC', '返回管理列表']
       ]));
       console.log();
-      
+
       const details = [
         ['供应商名称', provider.name],
         ['显示名称', provider.displayName],
@@ -1111,10 +1098,10 @@ class EnvSwitcher extends BaseCommand {
         ['当前状态', provider.current ? '✅ 使用中' : '⚫ 未使用'],
         ['使用次数', provider.usageCount || 0]
       ];
-      
+
       console.log(UIHelper.createTable(['项目', '信息'], details));
       console.log();
-      
+
       if (provider.launchArgs && provider.launchArgs.length > 0) {
         console.log(UIHelper.createCard('默认启动参数', provider.launchArgs.join(', '), UIHelper.icons.settings));
         console.log();
@@ -1167,7 +1154,7 @@ class EnvSwitcher extends BaseCommand {
           this.removeESCListener(escListener);
           return await this.showLaunchArgsSelection(providerName);
       }
-      
+
     } catch (error) {
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
@@ -1181,7 +1168,7 @@ class EnvSwitcher extends BaseCommand {
       await this.configManager.load();
       const provider = this.configManager.getProvider(providerName);
       this.clearScreen();
-      
+
       if (!provider) {
         Logger.error(`供应商 '${providerName}' 不存在`);
         return await this.showManageMenu();
@@ -1319,7 +1306,7 @@ class EnvSwitcher extends BaseCommand {
       provider.baseUrl = answers.baseUrl;
       provider.authToken = answers.authToken;
       provider.authMode = answers.authMode;
-      
+
       // 更新模型配置
       if (!provider.models) {
         provider.models = {};
@@ -1329,11 +1316,11 @@ class EnvSwitcher extends BaseCommand {
 
       await this.configManager.save();
       Logger.success(`供应商 '${newName}' 已更新`);
-      
+
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
       return await this.showManageMenu();
-      
+
     } catch (error) {
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
@@ -1348,7 +1335,7 @@ class EnvSwitcher extends BaseCommand {
       await this.configManager.load();
       const provider = this.configManager.getProvider(providerName);
       this.clearScreen();
-      
+
       if (!provider) {
         Logger.error(`供应商 '${providerName}' 不存在`);
         return await this.showManageMenu();
@@ -1388,7 +1375,7 @@ class EnvSwitcher extends BaseCommand {
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
       return await this.showManageMenu();
-      
+
     } catch (error) {
       // 移除 ESC 键监听
       this.removeESCListener(escListener);
@@ -1400,7 +1387,7 @@ class EnvSwitcher extends BaseCommand {
 
 async function switchCommand(providerName) {
   const switcher = new EnvSwitcher();
-  
+
   try {
     if (providerName) {
       await switcher.showLaunchArgsSelection(providerName);
@@ -1415,7 +1402,7 @@ async function switchCommand(providerName) {
 
 async function editCommand(providerName) {
   const switcher = new EnvSwitcher();
-  
+
   try {
     await switcher.editProvider(providerName);
   } finally {
