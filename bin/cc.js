@@ -7,6 +7,8 @@ const { registry } = require('../src/CommandRegistry');
 const pkg = require('../package.json');
 const { checkForUpdates } = require('../src/utils/update-checker');
 
+const BUILTIN_COMMANDS = new Set(['add', 'remove', 'list', 'current', 'edit', 'help']);
+
 // Set up CLI
 program
   .name('cc')
@@ -98,4 +100,25 @@ program
   });
 
 // Parse arguments
-program.parse();
+const rawArgs = process.argv.slice(2);
+const shouldUseDirectProviderMode =
+  rawArgs.length > 0 &&
+  !rawArgs[0].startsWith('-') &&
+  !BUILTIN_COMMANDS.has(rawArgs[0]);
+
+async function runDirectProviderMode(provider, claudeArgs) {
+  try {
+    await checkForUpdates({ packageName: pkg.name, currentVersion: pkg.version });
+    await main(provider, claudeArgs);
+  } catch (error) {
+    console.error(chalk.red('❌ 执行失败:'), error.message);
+    process.exit(1);
+  }
+}
+
+if (shouldUseDirectProviderMode) {
+  const [provider, ...claudeArgs] = rawArgs;
+  runDirectProviderMode(provider, claudeArgs);
+} else {
+  program.parse();
+}

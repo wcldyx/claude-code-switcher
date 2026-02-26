@@ -246,6 +246,12 @@ class EnvSwitcher extends BaseCommand {
     }
   }
 
+  buildLaunchArgs(provider, additionalLaunchArgs = []) {
+    const defaultLaunchArgs = Array.isArray(provider?.launchArgs) ? provider.launchArgs : [];
+    const extraLaunchArgs = Array.isArray(additionalLaunchArgs) ? additionalLaunchArgs : [];
+    return [...defaultLaunchArgs, ...extraLaunchArgs];
+  }
+
   getAvailableLaunchArgs() {
     return validator.getAvailableLaunchArgs();
   }
@@ -1385,12 +1391,14 @@ class EnvSwitcher extends BaseCommand {
   }
 }
 
-async function switchCommand(providerName) {
+async function switchCommand(providerName, additionalLaunchArgs = []) {
   const switcher = new EnvSwitcher();
 
   try {
     if (providerName) {
-      await switcher.showLaunchArgsSelection(providerName);
+      const provider = await switcher.validateProvider(providerName);
+      const launchArgs = switcher.buildLaunchArgs(provider, additionalLaunchArgs);
+      await switcher.launchProvider(provider, launchArgs);
     } else {
       await switcher.showProviderSelection();
     }
