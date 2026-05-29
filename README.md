@@ -1,16 +1,18 @@
 # Claude Code 环境切换器
 
-一键切换 Claude Code 的 API 供应商,让你轻松管理多个账号配置。
+一键切换 Claude Code 的 API 供应商，管理官方账号、第三方服务商、中转 API、模型别名和启动参数。
 
-> 🤖 本项目完全由 AI 开发 - 使用 [Claude Code](https://claude.ai/code) 构建
+[English](./README.en.md)
 
-## 📸 界面预览
+> 本项目由 AI 使用 [Claude Code](https://claude.ai/code) 辅助开发。
 
-### 主界面 - 供应商选择
+## 界面预览
+
+### 主界面
 
 ![供应商选择界面](./docs/images/WindowsTerminal.exe_20251023_092310.png)
 
-### 启动配置界面
+### 启动配置
 
 ![启动配置界面](./docs/images/WindowsTerminal.exe_20251019_214821.png)
 
@@ -18,230 +20,279 @@
 
 ![使用演示](./docs/images/动画.gif)
 
-## 💡 这个工具是干什么的？
+## 适合谁
 
-如果你在使用 Claude Code 时遇到这些问题：
+如果你需要：
 
-- ✅ 需要在多个 API 供应商之间切换
-- ✅ 使用不同的账号或 Token
-- ✅ 需要配置第三方代理服务
-- ✅ 想要快速保存和切换多套配置
+- 在多个 Claude Code API 供应商之间切换
+- 保存多个账号、Token 或第三方 API 配置
+- 给不同供应商设置不同的模型别名
+- 直启 Claude Code，并自动带上常用启动参数
+- 检测 `.claude/settings.json` 里的环境变量冲突
 
-那这个工具就是为你准备的！只需要一条命令 `cc`，就能快速切换环境。
+这个工具可以把这些配置集中到 `~/.cc-config.json`，用一条 `cc` 命令切换。
 
-## 🚀 快速开始
-
-### 第一步：安装工具
-
-打开终端(命令行),运行：
+## 安装
 
 ```bash
 npm install -g @wcldyx/claude-code-switcher
 ```
 
-### 第二步：开始使用
+运行：
 
 ```bash
 cc
 ```
 
-用方向键选择要使用的供应商,按回车确认,工具会自动启动 Claude Code！
+选择供应商后，工具会设置对应环境变量并启动 Claude Code。
 
-## 📖 常用命令
+## 常用命令
 
 ```bash
-cc              # 打开选择界面,切换供应商
-cc <供应商名>    # 直接启动该供应商(跳过启动参数选择界面)
-cc <供应商名> [参数...] # 直接启动并透传 Claude Code 参数
-cc add          # 添加新的供应商配置
-cc list         # 查看所有已保存的供应商
-cc current      # 查看当前正在使用哪个供应商
-cc edit         # 修改某个供应商的配置
-cc remove       # 删除不需要的供应商
+cc                         # 打开选择界面
+cc <供应商名>               # 直接启动该供应商
+cc <供应商名> [参数...]      # 直接启动，并透传 Claude Code 参数
+cc add                     # 添加供应商
+cc list                    # 查看供应商
+cc current                 # 查看当前配置
+cc edit                    # 编辑供应商
+cc remove                  # 删除供应商
 ```
 
-例如：
+示例：
 
 ```bash
-cc 官方
-cc 官方 --continue
-cc 官方 --print "你好"
-```
-
-说明：这里的参数是 **Claude Code 官方参数**。`cc` 只负责转发，不会改变参数语义。当你使用 `cc <供应商名>` 启动时，会自动使用该供应商已保存的默认参数；若你在命令后继续追加参数，会与默认参数合并后一起传给 Claude Code。
-
-## ✨ 主要功能
-
-### 🔄 智能环境切换
-
-- 一键切换多个 Claude Code 供应商配置
-- 支持官方和第三方 API 服务商
-- 自动管理环境变量,无需手动配置
-
-### 🛡️ 冲突检测与处理
-
-- **自动检测** Claude 设置文件中的环境变量冲突
-- **智能备份** 在修改前自动创建配置备份
-- **安全清理** 清空冲突变量,确保切换成功
-
-### 🚀 启动参数配置
-
-- 支持配置并转发 Claude Code 官方启动参数
-- 例如 `--continue`、`--dangerously-skip-permissions`
-- 可在交互界面选择，或在命令行直接追加并透传
-
-### 📡 实时状态检测
-
-- **流式检测** 供应商可用性实时检查,逐个显示结果
-- **状态指示** 使用彩色图标直观显示供应商状态(🟢 可用 / 🟡 有限可用 / 🔴 不可用)
-- **延迟显示** 实时显示 API 响应延迟,帮助选择最快的服务
-- **智能识别** 自动识别不同供应商的响应格式,兼容性强
-- **异步更新** 状态检测不阻塞界面操作,边检测边选择
-
-### ⌨️ 优化的键盘操作
-
-- **ESC 键** - 快速返回上一级菜单
-- **Ctrl+C** - 随时强制退出程序
-- **方向键** - 便捷的菜单导航
-- **空格/A/I** - 多选操作(全选/反选)
-
-### 📊 使用统计
-
-- 记录每个供应商的使用次数
-- 显示最后使用时间
-- 智能推荐常用供应商
-
-## 🎯 使用场景示例
-
-### 场景 1：工作和个人账号切换
-
-```bash
-# 上班时使用公司账号
 cc 公司账号
-
-# 下班后切换到个人账号
-cc 个人账号
-
-# 临时追加 Claude Code 参数
-cc 个人账号 --continue
+cc 公司账号 --continue
+cc 公司账号 --print "你好"
 ```
 
-### 场景 2：使用第三方服务
+`cc` 只负责设置环境变量和转发启动参数，不改变 Claude Code 官方参数的语义。
 
-有些第三方服务提供 Claude API 代理,可以在软件界面中添加配置。
+## 语言
 
-### 场景 3：临时测试新服务
+工具会根据系统语言自动选择中文或英文。也可以通过环境变量强制指定：
 
 ```bash
-# 在软件界面添加测试配置后试用
-cc 测试服务
-
-# 不好用就删掉
-cc remove 测试服务
+CC_LANG=en cc
+CC_LANG=zh-CN cc
 ```
 
-## ⚙️ 认证方式说明
+当前 CLI 帮助、顶层错误和更新提示已支持中英文；交互式菜单文案会继续逐步抽取。
 
-添加供应商时,会让你选择认证方式,这里简单说明：
+## 支持的认证方式
 
-**1. OAuth 令牌模式** (最常用)
+### API 密钥模式
 
-- 适用于官方 Claude Code
-- Token 格式: `sk-ant-oat01-...`
-- 只需要填 Token,不需要填 URL
+适合大多数第三方服务商。
 
-**2. API 密钥模式**
+设置：
 
-- 适用于第三方服务商
-- 需要填写 API 密钥和服务商提供的 URL
+```text
+ANTHROPIC_BASE_URL
+ANTHROPIC_API_KEY
+```
 
-**3. 认证令牌模式**
+### 认证令牌模式
 
-- 适用于某些第三方服务商
-- 需要填写认证令牌和服务商提供的 URL
+适合使用 Anthropic auth token 兼容方式的服务商。
 
-> 💡 不确定选哪个？看你的 Token 是什么格式,或者咨询你的服务商。
+设置：
 
-## ❓ 常见问题
+```text
+ANTHROPIC_BASE_URL
+ANTHROPIC_AUTH_TOKEN
+```
 
-**Q: 我的 Token 存在哪里,安全吗？**
-A: 配置保存在你的电脑上 `~/.cc-config.json`,只有你能访问。Token 会被加密存储。
+### OAuth 令牌模式
 
-**Q: 什么是"环境变量冲突检测"？**
-A: 如果你在 Claude Code 的设置文件（`.claude/settings.json` 或 `.claude/settings.local.json`）中配置了环境变量，这些变量可能会覆盖本工具设置的供应商配置。工具会自动检测这种冲突，并提示你备份和清理冲突的变量。
+适合官方 Claude Code OAuth。
 
-**Q: 备份文件保存在哪里？**
-A: 备份文件保存在原设置文件的同目录下，命名格式为 `settings.backup-YYYYMMDD_HHmmss.json`，方便你随时恢复。
+设置：
 
-**Q: 状态检测是如何工作的？**
-A: 工具会向每个供应商的 API 发送一个简单的测试请求,根据响应时间和结果显示状态。🟢 表示可用,🟡 表示有限可用(响应慢或部分功能受限),🔴 表示不可用,⏳ 表示正在检测中。状态检测采用流式模式,逐个显示结果,不会阻塞界面操作。
+```text
+CLAUDE_CODE_OAUTH_TOKEN
+```
 
-**Q: 为什么某些供应商显示"暂不支持 OAuth 令牌检测"？**
-A: OAuth 令牌模式的供应商(官方 Claude Code)暂不支持状态检测,因为 OAuth 认证流程比较复杂。工具只对使用 API 密钥或认证令牌的第三方供应商进行状态检测。
+OAuth 模式不需要 `ANTHROPIC_BASE_URL`。
 
-**Q: 如何重新来过？**
-A: 删除配置文件 `~/.cc-config.json` 就会清空所有配置。
+## 模型配置
 
-**Q: 可以导出配置到其他电脑吗？**
-A: 可以！复制 `~/.cc-config.json` 文件到新电脑的相同位置即可。
+工具使用 Claude Code 新版默认模型环境变量：
 
-**Q: 按 ESC 键没反应？**
-A: 确保你的终端支持 ESC 键捕获。如果不行，使用 `Ctrl+C` 也可以退出程序。
+```text
+ANTHROPIC_DEFAULT_OPUS_MODEL
+ANTHROPIC_DEFAULT_SONNET_MODEL
+ANTHROPIC_DEFAULT_HAIKU_MODEL
+```
 
-**Q: 需要什么系统？**
-A: Windows、macOS、Linux 都支持。需要安装 Node.js 14 或更高版本。
+添加或编辑供应商时，可以分别配置 Opus、Sonnet、Haiku 三个模型别名。
 
-**Q: 启动参数有什么用？**
-A: `--continue` 可以继续上次的对话，`--dangerously-skip-permissions` 适合在沙盒环境中使用（跳过权限检查）。
+旧配置会自动迁移：
 
-你有两种使用方式：
-- 在交互界面里选择启动参数（输入 `cc` 后选择供应商）
-- 直接命令行透传参数（如 `cc 官方 --continue`）
+```text
+models.primary   -> models.sonnet
+models.smallFast -> models.haiku
+```
 
-这些参数本质上都是 Claude Code 官方参数，`cc` 仅做转发。
+工具不会再设置旧的 `ANTHROPIC_MODEL` 和 `ANTHROPIC_SMALL_FAST_MODEL`。
 
-直接命令行模式下，会跳过“启动参数选择”步骤，并将命令里追加的参数与该供应商的默认启动参数合并后启动。
+## 连接测试
 
-## 📝 更新日志
+供应商状态检测会发送一个轻量请求探活。模型选择遵循“先读用户配置，再按便宜优先”的规则：
 
-### v1.0.13 (最新)
+```text
+用户配置的 Haiku
+ANTHROPIC_DEFAULT_HAIKU_MODEL
+用户配置的 Sonnet
+ANTHROPIC_DEFAULT_SONNET_MODEL
+用户配置的 Opus
+ANTHROPIC_DEFAULT_OPUS_MODEL
+内置默认 Haiku
+```
 
-- ✨ 实现供应商状态流式检测和实时更新
-- 📡 将批量检测改为流式模式,逐个显示状态结果
-- 🎨 优化状态图标显示,支持实时延迟展示
-- 🚀 增强 UI 交互,支持动态更新选择界面
-- 🔧 改进异步调度逻辑,提升响应速度
+OAuth 令牌模式暂不做连接测试。
 
-### v1.0.12
+## 启动参数
 
-- ✨ 新增供应商状态检测功能
-- 📡 添加 ProviderStatusChecker 类用于检测供应商可用性
-- 🎨 在供应商列表和选择界面显示实时状态信息
-- 🟢 支持状态图标显示(可用/有限可用/不可用)和延迟时间展示
-- 🚀 异步更新状态不阻塞界面操作
+支持保存和透传 Claude Code 启动参数，例如：
+
+```text
+--continue
+--dangerously-skip-permissions
+```
+
+默认情况下，“最高权限”参数会被默认勾选，并且 `cc <供应商名>` 直启时会自动带上：
+
+```text
+--dangerously-skip-permissions
+```
+
+如果想关闭这个默认行为，编辑 `~/.cc-config.json`：
+
+```json
+{
+  "preferences": {
+    "defaultDangerouslySkipPermissions": false
+  }
+}
+```
+
+关闭后：
+
+- 交互界面不会默认勾选最高权限
+- `cc <供应商名>` 不会自动追加最高权限
+- 如果某个供应商自己的 `launchArgs` 已显式保存该参数，仍会生效
+
+## 配置文件
+
+配置保存在：
+
+```text
+~/.cc-config.json
+```
+
+示例结构：
+
+```json
+{
+  "version": "1.0.0",
+  "currentProvider": "deepseek",
+  "preferences": {
+    "defaultDangerouslySkipPermissions": true
+  },
+  "providers": {
+    "deepseek": {
+      "name": "deepseek",
+      "displayName": "DeepSeek",
+      "authMode": "api_key",
+      "baseUrl": "https://api.example.com",
+      "authToken": "your-token",
+      "launchArgs": [],
+      "models": {
+        "opus": null,
+        "sonnet": "deepseek-chat",
+        "haiku": "deepseek-chat"
+      }
+    }
+  }
+}
+```
+
+注意：Token 保存在本机 JSON 文件中，请保护好这个文件，不要提交到 Git 或发送给他人。
+
+## 环境变量冲突检测
+
+如果 `.claude/settings.json` 或 `.claude/settings.local.json` 中写了同名环境变量，可能会覆盖本工具设置的供应商配置。
+
+工具会检测并提示备份、清理这些冲突变量：
+
+```text
+ANTHROPIC_API_KEY
+ANTHROPIC_AUTH_TOKEN
+ANTHROPIC_BASE_URL
+CLAUDE_CODE_OAUTH_TOKEN
+ANTHROPIC_DEFAULT_OPUS_MODEL
+ANTHROPIC_DEFAULT_SONNET_MODEL
+ANTHROPIC_DEFAULT_HAIKU_MODEL
+```
+
+备份文件命名格式：
+
+```text
+settings.backup-YYYYMMDD_HHmmss.json
+```
+
+## 常见问题
+
+**Q: 第三方 DeepSeek / 中转 API 能用 Chrome 集成吗？**  
+A: 不能。Claude Code 的 Chrome 集成依赖官方账号和官方服务链路，第三方 provider 场景下不适用，所以本工具不再提供 `--chrome` 启动选项。
+
+**Q: Token 是否加密？**  
+A: 不是。配置保存在本机 `~/.cc-config.json`，请自行保护文件权限。
+
+**Q: 如何重置配置？**  
+A: 删除 `~/.cc-config.json` 后重新运行 `cc add`。
+
+**Q: 可以迁移到另一台电脑吗？**  
+A: 可以，复制 `~/.cc-config.json` 到新电脑相同位置即可。
+
+**Q: 需要什么系统？**  
+A: Windows、macOS、Linux 都支持，需要 Node.js 14 或更高版本。
+
+## 更新日志
+
+### v2.0.0
+
+- 移除第三方场景无效的 `--chrome` 启动选项
+- 支持新版 Opus / Sonnet / Haiku 默认模型变量
+- 移除旧模型变量输出
+- 支持通过 JSON 配置关闭默认最高权限
+- `cc <供应商名>` 直启默认应用最高权限参数
+- 连接测试按 Haiku -> Sonnet -> Opus 顺序选择最便宜可用模型
+- 优化启动性能：懒加载交互模块、SDK 和启动器，更新检查后台执行
+- 优化 Windows Ctrl+C 退出：恢复控制台模式并清理残留输出
+- 缓存 Windows Claude Code 启动路径，减少确认启动后的同步等待
+- 新增英文文档 `README.en.md`
+- 新增多语言基础支持，CLI 帮助和更新提示可按系统语言显示中文或英文
+
+### v1.0.24
+
+- 修复和改进供应商配置管理
+
+### v1.0.13
+
+- 实现供应商状态流式检测和实时更新
+- 将批量检测改为流式模式，逐个显示状态结果
+- 优化状态图标显示，支持实时延迟展示
 
 ### v1.0.9
 
-- ✨ 新增 Claude 设置文件冲突检测功能
-- 🛡️ 自动备份和清理冲突的环境变量
-- ⌨️ 增强 ESC 键处理系统，支持各层级快速返回
-- 🎨 改进输入提示行为和屏幕清空功能
-- 🔧 重构 Windows 支持模块，提升跨平台兼容性
+- 新增 Claude 设置文件冲突检测
+- 自动备份和清理冲突环境变量
+- 增强 ESC 键处理系统
 
-### v1.0.8
+## 反馈
 
-- 🎯 优化用户界面和交互体验
-- 📊 改进供应商使用统计功能
-
-## 🆘 遇到问题？
-
-1. 查看 [常见问题](https://github.com/wcldyx/claude-code-switcher/issues)
-2. 提交 [新问题](https://github.com/wcldyx/claude-code-switcher/issues/new)
-
----
-
-## 🤖 关于本项目
-
-本项目完全由 AI 使用 [Claude Code](https://claude.ai/code) 开发完成。
-
-**Claude Code Switcher** - 让环境切换变得简单 🚀
+- [Issues](https://github.com/wcldyx/claude-code-switcher/issues)
+- [New issue](https://github.com/wcldyx/claude-code-switcher/issues/new)

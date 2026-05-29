@@ -29,9 +29,10 @@ class CurrentConfig {
       console.log(chalk.gray(`最后使用: ${new Date(currentProvider.lastUsed).toLocaleString()}`));
       
       // 显示模型配置
-      if (currentProvider.models && (currentProvider.models.primary || currentProvider.models.smallFast)) {
-        console.log(chalk.gray(`主模型: ${currentProvider.models.primary || '未设置'}`));
-        console.log(chalk.gray(`快速模型: ${currentProvider.models.smallFast || '未设置'}`));
+      if (currentProvider.models && (currentProvider.models.opus || currentProvider.models.sonnet || currentProvider.models.haiku)) {
+        console.log(chalk.gray(`Opus 模型: ${currentProvider.models.opus || '未设置'}`));
+        console.log(chalk.gray(`Sonnet 模型: ${currentProvider.models.sonnet || '未设置'}`));
+        console.log(chalk.gray(`Haiku 模型: ${currentProvider.models.haiku || '未设置'}`));
       }
       
       console.log(chalk.gray('═'.repeat(60)));
@@ -49,11 +50,14 @@ class CurrentConfig {
         // auth_token 模式或默认模式
         console.log(chalk.gray(`set ANTHROPIC_AUTH_TOKEN=${currentProvider.authToken}`));
       }
-      if (currentProvider.models?.primary) {
-        console.log(chalk.gray(`set ANTHROPIC_MODEL=${currentProvider.models.primary}`));
+      if (currentProvider.models?.opus) {
+        console.log(chalk.gray(`set ANTHROPIC_DEFAULT_OPUS_MODEL=${currentProvider.models.opus}`));
       }
-      if (currentProvider.models?.smallFast) {
-        console.log(chalk.gray(`set ANTHROPIC_SMALL_FAST_MODEL=${currentProvider.models.smallFast}`));
+      if (currentProvider.models?.sonnet) {
+        console.log(chalk.gray(`set ANTHROPIC_DEFAULT_SONNET_MODEL=${currentProvider.models.sonnet}`));
+      }
+      if (currentProvider.models?.haiku) {
+        console.log(chalk.gray(`set ANTHROPIC_DEFAULT_HAIKU_MODEL=${currentProvider.models.haiku}`));
       }
       console.log(chalk.gray('claude'));
       

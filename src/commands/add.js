@@ -286,7 +286,7 @@ class ProviderAdder extends BaseCommand {
 
       const modelConfig = answers.configureModels
         ? await this.promptModelConfiguration()
-        : { primaryModel: null, smallFastModel: null };
+        : { opusModel: null, sonnetModel: null, haikuModel: null };
 
       await this.configManager.addProvider(answers.name, {
         displayName: answers.displayName || answers.name,
@@ -294,8 +294,9 @@ class ProviderAdder extends BaseCommand {
         authToken: answers.authToken,
         authMode: answers.authMode,
         launchArgs,
-        primaryModel: modelConfig.primaryModel,
-        smallFastModel: modelConfig.smallFastModel,
+        opusModel: modelConfig.opusModel,
+        sonnetModel: modelConfig.sonnetModel,
+        haikuModel: modelConfig.haikuModel,
         setAsDefault: answers.setAsDefault
       });
 
@@ -358,6 +359,7 @@ class ProviderAdder extends BaseCommand {
     }, '跳过配置');
 
     try {
+      const defaultLaunchArgs = this.configManager.getDefaultLaunchArgs();
       const { launchArgs } = await this.prompt([
         {
           type: 'checkbox',
@@ -366,7 +368,7 @@ class ProviderAdder extends BaseCommand {
           choices: validator.getAvailableLaunchArgs().map(arg => ({
             name: `${arg.name} - ${arg.description}`,
             value: arg.name,
-            checked: false
+            checked: defaultLaunchArgs.includes(arg.name)
           }))
         }
       ]);
@@ -385,7 +387,7 @@ class ProviderAdder extends BaseCommand {
   async promptModelConfiguration() {
     console.log(UIHelper.createTitle('配置模型参数', UIHelper.icons.settings));
     console.log();
-    console.log(UIHelper.createTooltip('配置主模型和快速模型（可选）'));
+    console.log(UIHelper.createTooltip('配置 Opus、Sonnet 和 Haiku 模型（可选）'));
     console.log();
     console.log(UIHelper.createStepIndicator(3, 3, '可选: 配置模型参数'));
     console.log(UIHelper.createHintLine([
@@ -402,8 +404,8 @@ class ProviderAdder extends BaseCommand {
       const responses = await this.prompt([
         {
           type: 'input',
-          name: 'primaryModel',
-          message: '主模型 (ANTHROPIC_MODEL)：',
+          name: 'opusModel',
+          message: 'Opus 模型 (ANTHROPIC_DEFAULT_OPUS_MODEL)：',
           default: '',
           validate: (input) => {
             const error = validator.validateModel(input);
@@ -413,8 +415,19 @@ class ProviderAdder extends BaseCommand {
         },
         {
           type: 'input',
-          name: 'smallFastModel',
-          message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL)：',
+          name: 'sonnetModel',
+          message: 'Sonnet 模型 (ANTHROPIC_DEFAULT_SONNET_MODEL)：',
+          default: '',
+          validate: (input) => {
+            const error = validator.validateModel(input);
+            if (error) return error;
+            return true;
+          }
+        },
+        {
+          type: 'input',
+          name: 'haikuModel',
+          message: 'Haiku 模型 (ANTHROPIC_DEFAULT_HAIKU_MODEL)：',
           default: '',
           validate: (input) => {
             const error = validator.validateModel(input);
@@ -426,13 +439,14 @@ class ProviderAdder extends BaseCommand {
 
       this.removeESCListener(escListener);
       return {
-        primaryModel: responses.primaryModel,
-        smallFastModel: responses.smallFastModel
+        opusModel: responses.opusModel,
+        sonnetModel: responses.sonnetModel,
+        haikuModel: responses.haikuModel
       };
     } catch (error) {
       this.removeESCListener(escListener);
       if (this.isEscCancelled(error)) {
-        return { primaryModel: null, smallFastModel: null };
+        return { opusModel: null, sonnetModel: null, haikuModel: null };
       }
       throw error;
     }
@@ -462,12 +476,16 @@ class ProviderAdder extends BaseCommand {
       console.log(chalk.gray(`  启动参数: ${launchArgs.join(' ')}`));
     }
 
-    if (modelConfig.primaryModel) {
-      console.log(chalk.gray(`  主模型: ${modelConfig.primaryModel}`));
+    if (modelConfig.opusModel) {
+      console.log(chalk.gray(`  Opus 模型: ${modelConfig.opusModel}`));
     }
 
-    if (modelConfig.smallFastModel) {
-      console.log(chalk.gray(`  快速模型: ${modelConfig.smallFastModel}`));
+    if (modelConfig.sonnetModel) {
+      console.log(chalk.gray(`  Sonnet 模型: ${modelConfig.sonnetModel}`));
+    }
+
+    if (modelConfig.haikuModel) {
+      console.log(chalk.gray(`  Haiku 模型: ${modelConfig.haikuModel}`));
     }
 
     console.log(chalk.green('\n🎉 供应商添加完成！正在返回主界面...'));

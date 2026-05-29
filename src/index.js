@@ -1,9 +1,8 @@
-require('./utils/inquirer-setup');
-const { switchCommand } = require('./commands/switch');
 const { Logger } = require('./utils/logger');
 
 async function main(providerName, launchArgs = []) {
   try {
+    const { switchCommand } = require('./commands/switch');
     if (providerName) {
       // 直接切换到指定供应商
       await switchCommand(providerName, launchArgs);

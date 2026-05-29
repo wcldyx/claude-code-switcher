@@ -90,7 +90,6 @@ const validator = {
 
     const validArgs = [
       '--continue',
-      '--chrome',
       '--dangerously-skip-permissions',
       '--no-confirm',
       '--allow-all',
@@ -117,16 +116,10 @@ const validator = {
         checked: false
       },
       {
-        name: '--chrome',
-        label: '使用 Chrome 浏览器控制',
-        description: '允许 Claude 控制 Chrome 浏览器进行交互 (需安装扩展)',
-        checked: false
-      },
-      {
         name: '--dangerously-skip-permissions',
         label: '最高权限',
         description: '仅限沙盒环境使用',
-        checked: false
+        checked: true
       }
     ];
   }

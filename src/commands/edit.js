@@ -155,8 +155,9 @@ class ProviderEditor extends BaseCommand {
         authMode: answers.authMode,
         launchArgs: answers.launchArgs,
         // Retain original model settings unless we add editing for them
-        primaryModel: this.configManager.getProvider(name).models.primary,
-        smallFastModel: this.configManager.getProvider(name).models.smallFast,
+        opusModel: this.configManager.getProvider(name).models?.opus,
+        sonnetModel: this.configManager.getProvider(name).models?.sonnet,
+        haikuModel: this.configManager.getProvider(name).models?.haiku,
         setAsDefault: false, // Don't change default status on edit
       });
 

@@ -6,6 +6,8 @@ class ProviderStatusChecker {
     this.testMessage = options.testMessage ?? '你好';
     this.maxTokens = options.maxTokens ?? 32;
     this.defaultModel = 'claude-haiku-4-5-20251001';
+    this.env = options.env ?? process.env;
+    this.maxConcurrency = Math.max(1, options.maxConcurrency ?? 4);
   }
 
   async check(provider) {
@@ -68,7 +70,17 @@ class ProviderStatusChecker {
 
   checkAllStreaming(providers, onUpdate) {
     const results = {};
-    const tasks = providers.map(async provider => {
+    let nextIndex = 0;
+
+    const runNext = async () => {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+
+      if (currentIndex >= providers.length) {
+        return;
+      }
+
+      const provider = providers[currentIndex];
       try {
         const status = await this.check(provider);
         results[provider.name] = status;
@@ -82,9 +94,14 @@ class ProviderStatusChecker {
           onUpdate(provider.name, fallback, error);
         }
       }
-    });
 
-    return Promise.all(tasks).then(() => results);
+      await runNext();
+    };
+
+    const workerCount = Math.min(this.maxConcurrency, providers.length);
+    const workers = Array.from({ length: workerCount }, () => runNext());
+
+    return Promise.all(workers).then(() => results);
   }
 
   _createClient(provider) {
@@ -102,13 +119,40 @@ class ProviderStatusChecker {
   }
 
   _resolveModel(provider) {
-    if (provider.models?.primary) {
-      return provider.models.primary;
+    const haikuModel = this._resolveConfiguredModel(provider, 'haiku', 'ANTHROPIC_DEFAULT_HAIKU_MODEL');
+    if (haikuModel) {
+      return haikuModel;
     }
-    if (provider.models?.smallFast) {
-      return provider.models.smallFast;
+
+    const sonnetModel = this._resolveConfiguredModel(provider, 'sonnet', 'ANTHROPIC_DEFAULT_SONNET_MODEL');
+    if (sonnetModel) {
+      return sonnetModel;
     }
+
+    const opusModel = this._resolveConfiguredModel(provider, 'opus', 'ANTHROPIC_DEFAULT_OPUS_MODEL');
+    if (opusModel) {
+      return opusModel;
+    }
+
     return this.defaultModel;
+  }
+
+  _resolveConfiguredModel(provider, modelKey, envKey) {
+    const providerModel = this._normalizeModelName(provider.models?.[modelKey]);
+    if (providerModel) {
+      return providerModel;
+    }
+
+    return this._normalizeModelName(this.env?.[envKey]);
+  }
+
+  _normalizeModelName(modelName) {
+    if (typeof modelName !== 'string') {
+      return null;
+    }
+
+    const trimmed = modelName.trim();
+    return trimmed || null;
   }
 
   _extractText(response) {

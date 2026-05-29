@@ -1,10 +1,21 @@
 const chalk = require('chalk');
-const inquirer = require('inquirer');
 const { EscNavigationManager } = require('../navigation/EscNavigationManager');
 const { Logger } = require('../utils/logger');
 
 // 允许在 allowEmpty 启用时提交空字符串，而不是回退到默认值
-const resolveInputPrompt = () => {
+let cachedInquirer = null;
+let inputPromptPatched = false;
+
+function getInquirer() {
+  if (!cachedInquirer) {
+    require('../utils/inquirer-setup');
+    cachedInquirer = require('inquirer');
+    patchInputPrompt(cachedInquirer);
+  }
+  return cachedInquirer;
+}
+
+const resolveInputPrompt = (inquirer) => {
   const promptFromModule = inquirer.prompt && inquirer.prompt.prompts && inquirer.prompt.prompts.input;
   if (promptFromModule) {
     return promptFromModule;
@@ -20,8 +31,17 @@ const resolveInputPrompt = () => {
   }
 };
 
-const InputPrompt = resolveInputPrompt();
-if (InputPrompt && !InputPrompt.prototype.__allowEmptyPatched) {
+function patchInputPrompt(inquirer) {
+  if (inputPromptPatched) {
+    return;
+  }
+
+  const InputPrompt = resolveInputPrompt(inquirer);
+  if (!InputPrompt || InputPrompt.prototype.__allowEmptyPatched) {
+    inputPromptPatched = true;
+    return;
+  }
+
   const originalFilterInput = InputPrompt.prototype.filterInput;
   const originalRun = InputPrompt.prototype._run;
 
@@ -53,6 +73,7 @@ if (InputPrompt && !InputPrompt.prototype.__allowEmptyPatched) {
   };
 
   InputPrompt.prototype.__allowEmptyPatched = true;
+  inputPromptPatched = true;
 }
 
 const ESC_CANCELLED_ERROR_CODE = 'ESC_CANCELLED';
@@ -69,6 +90,7 @@ class BaseCommand {
   }
 
   async prompt(questions) {
+    const inquirer = getInquirer();
     const promptPromise = inquirer.prompt(questions);
     let settled = false;
 

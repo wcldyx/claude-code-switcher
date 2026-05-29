@@ -1,27 +1,37 @@
 const path = require('path');
-const inquirer = require('inquirer');
 const chalk = require('chalk');
-const Choices = require('inquirer/lib/objects/choices');
 const { ConfigManager } = require('../config');
-const { executeWithEnv } = require('../utils/env-launcher');
 const { Logger } = require('../utils/logger');
 const { UIHelper } = require('../utils/ui-helper');
 const { findSettingsConflict, backupSettingsFile, clearConflictKeys, saveSettingsFile } = require('../utils/claude-settings');
 const { BaseCommand } = require('./BaseCommand');
 const { validator } = require('../utils/validator');
-const { ProviderStatusChecker } = require('../utils/provider-status-checker');
+
+function getInquirer() {
+  require('../utils/inquirer-setup');
+  return require('inquirer');
+}
+
+function createSeparator() {
+  return new (getInquirer().Separator)();
+}
+
+function getChoices() {
+  return require('inquirer/lib/objects/choices');
+}
 
 class EnvSwitcher extends BaseCommand {
   constructor() {
     super();
     this.configManager = new ConfigManager();
-    this.statusChecker = new ProviderStatusChecker();
+    this.statusChecker = null;
     this.latestStatusMap = {};
     this.currentPromptContext = null;
     this.activeStatusRefresh = null;
     this.pendingStatusUpdates = new Map();
     this.statusFlushTimer = null;
     this.statusFlushDelayMs = 300;
+    this.lastStatusRenderSignature = null;
   }
 
   async validateProvider(providerName) {
@@ -37,7 +47,7 @@ class EnvSwitcher extends BaseCommand {
     try {
       this.clearScreen();
       const provider = await this.validateProvider(providerName);
-      const availableArgs = this.getAvailableLaunchArgs();
+      const availableArgs = this.getAvailableLaunchArgs(provider);
 
       console.log(UIHelper.createTitle('启动配置', UIHelper.icons.launch));
       console.log();
@@ -234,6 +244,7 @@ class EnvSwitcher extends BaseCommand {
         console.log();
 
         // 设置环境变量并启动Claude Code
+        const { executeWithEnv } = require('../utils/env-launcher');
         await executeWithEnv(provider, selectedLaunchArgs);
 
       } catch (error) {
@@ -247,13 +258,32 @@ class EnvSwitcher extends BaseCommand {
   }
 
   buildLaunchArgs(provider, additionalLaunchArgs = []) {
+    const globalDefaultLaunchArgs = this.configManager.getDefaultLaunchArgs();
     const defaultLaunchArgs = Array.isArray(provider?.launchArgs) ? provider.launchArgs : [];
     const extraLaunchArgs = Array.isArray(additionalLaunchArgs) ? additionalLaunchArgs : [];
-    return [...defaultLaunchArgs, ...extraLaunchArgs];
+    return Array.from(new Set([
+      ...globalDefaultLaunchArgs,
+      ...defaultLaunchArgs,
+      ...extraLaunchArgs
+    ]));
   }
 
-  getAvailableLaunchArgs() {
-    return validator.getAvailableLaunchArgs();
+  getStatusChecker() {
+    if (!this.statusChecker) {
+      const { ProviderStatusChecker } = require('../utils/provider-status-checker');
+      this.statusChecker = new ProviderStatusChecker();
+    }
+    return this.statusChecker;
+  }
+
+  getAvailableLaunchArgs(provider = null) {
+    const defaultLaunchArgs = provider
+      ? this.buildLaunchArgs(provider)
+      : this.configManager.getDefaultLaunchArgs();
+    return validator.getAvailableLaunchArgs().map(arg => ({
+      ...arg,
+      checked: defaultLaunchArgs.includes(arg.name)
+    }));
   }
 
   // getArgDescription 方法已被移除，直接使用 arg.description
@@ -284,7 +314,7 @@ class EnvSwitcher extends BaseCommand {
 
       // 添加特殊选项
       choices.push(
-        new inquirer.Separator(),
+        createSeparator(),
         { name: `${UIHelper.icons.add} 添加新供应商`, value: '__ADD__' },
         { name: `${UIHelper.icons.list} 供应商管理 (编辑/删除)`, value: '__MANAGE__' },
         { name: `${UIHelper.icons.config} 打开配置文件`, value: '__OPEN_CONFIG__' },
@@ -572,7 +602,7 @@ class EnvSwitcher extends BaseCommand {
     }));
 
     choices.push(
-      new inquirer.Separator(),
+      createSeparator(),
       { name: `${UIHelper.icons.back} 返回设置`, value: 'back' }
     );
 
@@ -855,7 +885,7 @@ class EnvSwitcher extends BaseCommand {
 
     if (includeActions) {
       choices.push(
-        new inquirer.Separator(),
+        createSeparator(),
         { name: `${UIHelper.icons.back} 返回供应商选择`, value: 'back' },
         { name: `${UIHelper.icons.error} 退出`, value: 'exit' }
       );
@@ -930,9 +960,10 @@ class EnvSwitcher extends BaseCommand {
 
     const refreshToken = Symbol('statusRefresh');
     this.activeStatusRefresh = refreshToken;
+    this.lastStatusRenderSignature = null;
 
     const latestMap = { ...this.latestStatusMap };
-    this.statusChecker
+    this.getStatusChecker()
       .checkAllStreaming(providers, (providerName, status) => {
         if (this.activeStatusRefresh !== refreshToken) {
           return;
@@ -951,7 +982,9 @@ class EnvSwitcher extends BaseCommand {
         if (this.activeStatusRefresh !== refreshToken) {
           return;
         }
-        Logger.error(`供应商状态检测失败: ${error.message}`);
+        if (!this.activePrompt) {
+          Logger.error(`供应商状态检测失败: ${error.message}`);
+        }
         const fallback = this._buildErrorStatusMap(providers, error);
         Object.assign(latestMap, fallback);
         this.latestStatusMap = latestMap;
@@ -961,6 +994,7 @@ class EnvSwitcher extends BaseCommand {
 
   _cancelStatusRefresh() {
     this.activeStatusRefresh = null;
+    this.lastStatusRenderSignature = null;
     if (this.statusFlushTimer) {
       clearTimeout(this.statusFlushTimer);
       this.statusFlushTimer = null;
@@ -1017,13 +1051,48 @@ class EnvSwitcher extends BaseCommand {
 
     if (!includeActions) {
       updatedChoices.push(
-        new inquirer.Separator(),
+        createSeparator(),
         { name: `${UIHelper.icons.add} 添加新供应商`, value: '__ADD__' },
         { name: `${UIHelper.icons.list} 供应商管理 (编辑/删除)`, value: '__MANAGE__' },
         { name: `${UIHelper.icons.config} 打开配置文件`, value: '__OPEN_CONFIG__' },
         { name: `${UIHelper.icons.error} 退出`, value: '__EXIT__' }
       );
     }
+
+    const nextMessage = (() => {
+      if (error) {
+        if (this.currentPromptContext === 'selection') {
+          return `请选择要切换的供应商 (总计 ${providers.length} 个，状态检测失败，使用默认配置):`;
+        }
+        if (this.currentPromptContext === 'manage') {
+          return `选择供应商或操作 (总计 ${providers.length} 个，状态检测失败，使用默认配置):`;
+        }
+      }
+
+      if (this.currentPromptContext === 'selection') {
+        return `请选择要切换的供应商 (总计 ${providers.length} 个):`;
+      }
+      if (this.currentPromptContext === 'manage') {
+        return `选择供应商或操作 (总计 ${providers.length} 个):`;
+      }
+      return activePrompt.opt.message;
+    })();
+
+    const renderSignature = [
+      this.currentPromptContext,
+      nextMessage,
+      ...updatedChoices.map(choice => {
+        if (choice && choice.type === 'separator') {
+          return '---';
+        }
+        return `${choice?.value || ''}:${choice?.name || ''}`;
+      })
+    ].join('|');
+
+    if (renderSignature === this.lastStatusRenderSignature) {
+      return;
+    }
+    this.lastStatusRenderSignature = renderSignature;
 
     const previousValue = (() => {
       try {
@@ -1033,6 +1102,7 @@ class EnvSwitcher extends BaseCommand {
       }
     })();
 
+    const Choices = getChoices();
     activePrompt.opt.choices = new Choices(updatedChoices, activePrompt.answers);
 
     if (previousValue != null) {
@@ -1046,19 +1116,7 @@ class EnvSwitcher extends BaseCommand {
       activePrompt.selected = Math.max(activePrompt.opt.choices.realLength - 1, 0);
     }
 
-    if (error) {
-      if (this.currentPromptContext === 'selection') {
-        activePrompt.opt.message = `请选择要切换的供应商 (总计 ${providers.length} 个，状态检测失败，使用默认配置):`;
-      } else if (this.currentPromptContext === 'manage') {
-        activePrompt.opt.message = `选择供应商或操作 (总计 ${providers.length} 个，状态检测失败，使用默认配置):`;
-      }
-    } else {
-      if (this.currentPromptContext === 'selection') {
-        activePrompt.opt.message = `请选择要切换的供应商 (总计 ${providers.length} 个):`;
-      } else if (this.currentPromptContext === 'manage') {
-        activePrompt.opt.message = `选择供应商或操作 (总计 ${providers.length} 个):`;
-      }
-    }
+    activePrompt.opt.message = nextMessage;
 
     activePrompt.render();
   }
@@ -1097,8 +1155,9 @@ class EnvSwitcher extends BaseCommand {
         ['认证模式', provider.authMode === 'oauth_token' ? 'OAuth令牌模式' : 'API密钥模式'],
         ['基础URL', provider.baseUrl || (provider.authMode === 'oauth_token' ? '✨ 官方默认服务器' : '⚠️ 未设置')],
         ['认证令牌', provider.authToken || '未设置'],
-        ['主模型', provider.models?.primary || '未设置'],
-        ['快速模型', provider.models?.smallFast || '未设置'],
+        ['Opus 模型', provider.models?.opus || '未设置'],
+        ['Sonnet 模型', provider.models?.sonnet || '未设置'],
+        ['Haiku 模型', provider.models?.haiku || '未设置'],
         ['创建时间', UIHelper.formatTime(provider.createdAt)],
         ['最后使用', UIHelper.formatTime(provider.lastUsed)],
         ['当前状态', provider.current ? '✅ 使用中' : '⚫ 未使用'],
@@ -1246,9 +1305,9 @@ class EnvSwitcher extends BaseCommand {
           },
           {
             type: 'input',
-            name: 'primaryModel',
-            message: '主模型 (ANTHROPIC_MODEL):',
-            default: provider.models?.primary || '',
+            name: 'opusModel',
+            message: 'Opus 模型 (ANTHROPIC_DEFAULT_OPUS_MODEL):',
+            default: provider.models?.opus || '',
             prefillDefault: true,
             allowEmpty: true,
             validate: (input) => {
@@ -1259,9 +1318,22 @@ class EnvSwitcher extends BaseCommand {
           },
           {
             type: 'input',
-            name: 'smallFastModel',
-            message: '快速模型 (ANTHROPIC_SMALL_FAST_MODEL):',
-            default: provider.models?.smallFast || '',
+            name: 'sonnetModel',
+            message: 'Sonnet 模型 (ANTHROPIC_DEFAULT_SONNET_MODEL):',
+            default: provider.models?.sonnet || '',
+            prefillDefault: true,
+            allowEmpty: true,
+            validate: (input) => {
+              const error = validator.validateModel(input);
+              if (error) return error;
+              return true;
+            }
+          },
+          {
+            type: 'input',
+            name: 'haikuModel',
+            message: 'Haiku 模型 (ANTHROPIC_DEFAULT_HAIKU_MODEL):',
+            default: provider.models?.haiku || '',
             prefillDefault: true,
             allowEmpty: true,
             validate: (input) => {
@@ -1317,8 +1389,9 @@ class EnvSwitcher extends BaseCommand {
       if (!provider.models) {
         provider.models = {};
       }
-      provider.models.primary = answers.primaryModel || null;
-      provider.models.smallFast = answers.smallFastModel || null;
+      provider.models.opus = answers.opusModel || null;
+      provider.models.sonnet = answers.sonnetModel || null;
+      provider.models.haiku = answers.haikuModel || null;
 
       await this.configManager.save();
       Logger.success(`供应商 '${newName}' 已更新`);

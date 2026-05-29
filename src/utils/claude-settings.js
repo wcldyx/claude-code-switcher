@@ -1,14 +1,37 @@
-const fs = require('fs-extra');
+const fs = require('fs/promises');
+const { constants: fsConstants } = require('fs');
 const path = require('path');
 const os = require('os');
+
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJson(filePath) {
+  const content = await fs.readFile(filePath, 'utf8');
+  return JSON.parse(content);
+}
+
+async function writeJson(filePath, data, options = {}) {
+  const spaces = Object.prototype.hasOwnProperty.call(options, 'spaces')
+    ? options.spaces
+    : 2;
+  await fs.writeFile(filePath, JSON.stringify(data, null, spaces));
+}
 
 const CONFLICT_ENV_KEYS = [
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_AUTH_TOKEN',
   'ANTHROPIC_BASE_URL',
   'CLAUDE_CODE_OAUTH_TOKEN',
-  'ANTHROPIC_MODEL',
-  'ANTHROPIC_SMALL_FAST_MODEL'
+  'ANTHROPIC_DEFAULT_OPUS_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL'
 ];
 
 const SETTINGS_FILE_NAMES = ['settings.local.json', 'settings.json'];
@@ -71,8 +94,8 @@ async function loadSettingsFile() {
   const candidates = resolveCandidatePaths();
   for (const candidate of candidates) {
     try {
-      if (await fs.pathExists(candidate)) {
-        const data = await fs.readJson(candidate);
+      if (await pathExists(candidate)) {
+        const data = await readJson(candidate);
         return { path: candidate, data };
       }
     } catch (error) {
@@ -98,7 +121,13 @@ async function backupSettingsFile(filePath) {
   const dir = path.dirname(filePath);
   const backupName = `settings.backup-${timestampSuffix()}.json`;
   const backupPath = path.join(dir, backupName);
-  await fs.copy(filePath, backupPath, { overwrite: false, errorOnExist: false });
+  try {
+    await fs.copyFile(filePath, backupPath, fsConstants.COPYFILE_EXCL);
+  } catch (error) {
+    if (error.code !== 'EEXIST') {
+      throw error;
+    }
+  }
   return backupPath;
 }
 
@@ -121,7 +150,7 @@ function clearConflictKeys(settings, keys) {
 }
 
 async function saveSettingsFile(filePath, data) {
-  await fs.writeJson(filePath, data, { spaces: 2 });
+  await writeJson(filePath, data, { spaces: 2 });
 }
 
 async function findSettingsConflict() {

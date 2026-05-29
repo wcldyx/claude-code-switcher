@@ -186,7 +186,7 @@ class UIHelper {
     let frameIndex = 0;
     
     return setInterval(() => {
-      process.stdout.write(`\r${this.colors.warning(frames[frameIndex])} ${this.colors.info(text)}`);
+      process.stdout.write(`\r\x1b[2K${this.colors.warning(frames[frameIndex])} ${this.colors.info(text)}`);
       frameIndex = (frameIndex + 1) % frames.length;
     }, 100);
   }
@@ -194,7 +194,7 @@ class UIHelper {
   // 清除加载动画
   static clearLoadingAnimation(interval) {
     clearInterval(interval);
-    process.stdout.write('\r');
+    process.stdout.write('\r\x1b[2K');
   }
 
   // 创建快捷键提示

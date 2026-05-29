@@ -39,9 +39,10 @@ class ProviderLister {
         if (provider.launchArgs && provider.launchArgs.length > 0) {
           console.log(chalk.gray(`   启动参数: ${provider.launchArgs.join(' ')}`));
         }
-        if (provider.models && (provider.models.primary || provider.models.smallFast)) {
-          console.log(chalk.gray(`   主模型: ${provider.models.primary || '未设置'}`));
-          console.log(chalk.gray(`   快速模型: ${provider.models.smallFast || '未设置'}`));
+        if (provider.models && (provider.models.opus || provider.models.sonnet || provider.models.haiku)) {
+          console.log(chalk.gray(`   Opus 模型: ${provider.models.opus || '未设置'}`));
+          console.log(chalk.gray(`   Sonnet 模型: ${provider.models.sonnet || '未设置'}`));
+          console.log(chalk.gray(`   Haiku 模型: ${provider.models.haiku || '未设置'}`));
         }
         console.log(chalk.gray(`   创建时间: ${new Date(provider.createdAt).toLocaleString()}`));
         console.log(chalk.gray(`   最后使用: ${new Date(provider.lastUsed).toLocaleString()}`));

@@ -55,6 +55,73 @@ describe('ConfigManager', () => {
       const persisted = await fs.readJSON(testConfigPath);
       expect(persisted).toEqual(configManager.getDefaultConfig());
     });
+
+    test('should remove deprecated chrome launch arg during migration', async () => {
+      const fs = require('fs-extra');
+      await fs.writeJSON(testConfigPath, {
+        version: '1.0.0',
+        currentProvider: 'test',
+        providers: {
+          test: {
+            name: 'test',
+            displayName: 'Test Provider',
+            launchArgs: ['--continue', '--chrome', '--dangerously-skip-permissions']
+          }
+        }
+      });
+
+      configManager.isLoaded = false;
+      configManager.config = null;
+      configManager.lastModified = null;
+      configManager.loadPromise = null;
+
+      const config = await configManager.load(true);
+      expect(config.providers.test.launchArgs).toEqual([
+        '--continue',
+        '--dangerously-skip-permissions'
+      ]);
+
+      const persisted = await fs.readJSON(testConfigPath);
+      expect(persisted.providers.test.launchArgs).toEqual([
+        '--continue',
+        '--dangerously-skip-permissions'
+      ]);
+    });
+
+    test('should migrate legacy model fields to default model aliases', async () => {
+      const fs = require('fs-extra');
+      await fs.writeJSON(testConfigPath, {
+        version: '1.0.0',
+        currentProvider: 'test',
+        providers: {
+          test: {
+            name: 'test',
+            displayName: 'Test Provider',
+            models: {
+              primary: 'claude-sonnet-legacy',
+              smallFast: 'claude-haiku-legacy'
+            }
+          }
+        }
+      });
+
+      configManager.isLoaded = false;
+      configManager.config = null;
+      configManager.lastModified = null;
+      configManager.loadPromise = null;
+
+      const config = await configManager.load(true);
+      expect(config.providers.test.models).toEqual({
+        sonnet: 'claude-sonnet-legacy',
+        haiku: 'claude-haiku-legacy'
+      });
+
+      const persisted = await fs.readJSON(testConfigPath);
+      expect(persisted.providers.test.models).toEqual({
+        sonnet: 'claude-sonnet-legacy',
+        haiku: 'claude-haiku-legacy'
+      });
+    });
   });
 
   describe('addProvider', () => {
@@ -73,6 +140,29 @@ describe('ConfigManager', () => {
       expect(config.providers.test.displayName).toBe('Test Provider');
       expect(config.providers.test.baseUrl).toBe('https://test.com');
       expect(config.providers.test.authToken).toBe('test-token-123456');
+      expect(config.providers.test.models).toEqual({
+        opus: null,
+        sonnet: null,
+        haiku: null
+      });
+    });
+
+    test('should store default model aliases', async () => {
+      await configManager.addProvider('test', {
+        displayName: 'Test Provider',
+        baseUrl: 'https://test.com',
+        authToken: 'test-token-123456',
+        opusModel: 'claude-opus-custom',
+        sonnetModel: 'claude-sonnet-custom',
+        haikuModel: 'claude-haiku-custom'
+      });
+
+      const config = await configManager.load();
+      expect(config.providers.test.models).toEqual({
+        opus: 'claude-opus-custom',
+        sonnet: 'claude-sonnet-custom',
+        haiku: 'claude-haiku-custom'
+      });
     });
 
     test('should set first provider as current', async () => {
@@ -198,6 +288,17 @@ describe('validator', () => {
       expect(validator.validateModel('   ')).toBe('模型名称不能为空字符串');
       expect(validator.validateModel(123)).toBe('模型名称必须是字符串');
       expect(validator.validateModel('a'.repeat(101))).toBe('模型名称不能超过100个字符');
+    });
+  });
+
+  describe('getAvailableLaunchArgs', () => {
+    test('should select dangerous permissions by default', () => {
+      const dangerousArg = validator
+        .getAvailableLaunchArgs()
+        .find(arg => arg.name === '--dangerously-skip-permissions');
+
+      expect(dangerousArg).toBeDefined();
+      expect(dangerousArg.checked).toBe(true);
     });
   });
 

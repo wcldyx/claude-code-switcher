@@ -1,7 +1,28 @@
-const fs = require('fs-extra');
+const fs = require('fs/promises');
 const path = require('path');
 const os = require('os');
 const chalk = require('chalk');
+
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJSON(filePath) {
+  const content = await fs.readFile(filePath, 'utf8');
+  return JSON.parse(content);
+}
+
+async function writeJSON(filePath, data, options = {}) {
+  const spaces = Object.prototype.hasOwnProperty.call(options, 'spaces')
+    ? options.spaces
+    : 2;
+  await fs.writeFile(filePath, JSON.stringify(data, null, spaces));
+}
 
 class ConfigManager {
   constructor() {
@@ -16,6 +37,9 @@ class ConfigManager {
     return {
       version: '1.0.0',
       currentProvider: null,
+      preferences: {
+        defaultDangerouslySkipPermissions: true
+      },
       providers: {}
     };
   }
@@ -49,8 +73,8 @@ class ConfigManager {
 
   async _performLoad() {
     try {
-      if (await fs.pathExists(this.configPath)) {
-        const data = await fs.readJSON(this.configPath);
+      if (await pathExists(this.configPath)) {
+        const data = await readJSON(this.configPath);
 
         if (!data || typeof data !== 'object' || Array.isArray(data)) {
           // 配置文件被写成非对象内容时，重置为默认配置
@@ -60,8 +84,15 @@ class ConfigManager {
           this.config = { ...this.getDefaultConfig(), ...data };
         }
 
-        // 迁移旧的认证模式
-        this._migrateAuthModes();
+        // 迁移旧配置
+        const preferencesMigrated = this._normalizePreferences();
+        const authModesMigrated = this._migrateAuthModes();
+        const launchArgsMigrated = this._migrateLaunchArgs();
+        const modelsMigrated = this._migrateModelConfig();
+        const migrated = preferencesMigrated || authModesMigrated || launchArgsMigrated || modelsMigrated;
+        if (migrated) {
+          await this._performSave();
+        }
 
         const stat = await fs.stat(this.configPath);
         this.lastModified = stat.mtime;
@@ -85,20 +116,95 @@ class ConfigManager {
   }
 
   _migrateAuthModes() {
+    let migrated = false;
+
     // 迁移旧的 api_token 模式到新的 auth_token 模式
     if (this.config.providers) {
       Object.keys(this.config.providers).forEach(key => {
         const provider = this.config.providers[key];
         if (provider.authMode === 'api_token') {
           provider.authMode = 'auth_token';
+          migrated = true;
         }
       });
     }
+
+    return migrated;
+  }
+
+  _normalizePreferences() {
+    const defaultPreferences = this.getDefaultConfig().preferences;
+    const currentPreferences = this.config.preferences;
+
+    if (!currentPreferences || typeof currentPreferences !== 'object' || Array.isArray(currentPreferences)) {
+      this.config.preferences = { ...defaultPreferences };
+      return true;
+    }
+
+    const normalizedPreferences = {
+      ...defaultPreferences,
+      ...currentPreferences
+    };
+    const migrated = JSON.stringify(normalizedPreferences) !== JSON.stringify(currentPreferences);
+    this.config.preferences = normalizedPreferences;
+
+    return migrated;
+  }
+
+  _migrateLaunchArgs() {
+    let migrated = false;
+
+    if (this.config.providers) {
+      Object.keys(this.config.providers).forEach(key => {
+        const provider = this.config.providers[key];
+        if (Array.isArray(provider.launchArgs) && provider.launchArgs.includes('--chrome')) {
+          provider.launchArgs = provider.launchArgs.filter(arg => arg !== '--chrome');
+          migrated = true;
+        }
+      });
+    }
+
+    return migrated;
+  }
+
+  _migrateModelConfig() {
+    let migrated = false;
+
+    if (this.config.providers) {
+      Object.keys(this.config.providers).forEach(key => {
+        const provider = this.config.providers[key];
+        if (!provider.models || typeof provider.models !== 'object') {
+          return;
+        }
+
+        if (provider.models.primary && !provider.models.sonnet) {
+          provider.models.sonnet = provider.models.primary;
+          migrated = true;
+        }
+
+        if (provider.models.smallFast && !provider.models.haiku) {
+          provider.models.haiku = provider.models.smallFast;
+          migrated = true;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(provider.models, 'primary')) {
+          delete provider.models.primary;
+          migrated = true;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(provider.models, 'smallFast')) {
+          delete provider.models.smallFast;
+          migrated = true;
+        }
+      });
+    }
+
+    return migrated;
   }
 
   async checkIfModified() {
     try {
-      if (!this.lastModified || !await fs.pathExists(this.configPath)) {
+      if (!this.lastModified || !await pathExists(this.configPath)) {
         return true;
       }
       const stat = await fs.stat(this.configPath);
@@ -119,7 +225,7 @@ class ConfigManager {
 
   async _performSave() {
     try {
-      await fs.writeJSON(this.configPath, this.config, { spaces: 2 });
+      await writeJSON(this.configPath, this.config, { spaces: 2 });
       // 更新最后修改时间
       const stat = await fs.stat(this.configPath);
       this.lastModified = stat.mtime;
@@ -148,8 +254,9 @@ class ConfigManager {
       authMode: providerConfig.authMode || 'api_key',
       launchArgs: providerConfig.launchArgs || [],
       models: {
-        primary: providerConfig.primaryModel || null,
-        smallFast: providerConfig.smallFastModel || null
+        opus: providerConfig.opusModel || null,
+        sonnet: providerConfig.sonnetModel || null,
+        haiku: providerConfig.haikuModel || null
       },
       createdAt: new Date().toISOString(),
       lastUsed: new Date().toISOString(),
@@ -207,6 +314,17 @@ class ConfigManager {
     this.config.currentProvider = name;
 
     return await this.save();
+  }
+
+  shouldDefaultDangerouslySkipPermissions() {
+    const preferences = this.config?.preferences || this.getDefaultConfig().preferences;
+    return preferences.defaultDangerouslySkipPermissions !== false;
+  }
+
+  getDefaultLaunchArgs() {
+    return this.shouldDefaultDangerouslySkipPermissions()
+      ? ['--dangerously-skip-permissions']
+      : [];
   }
 
   getProvider(name) {
