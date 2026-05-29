@@ -1,6 +1,6 @@
 const inquirer = require('inquirer');
 const chalk = require('chalk');
-const { ConfigManager } = require('../config');
+const { ConfigManager, DEFAULT_RUNTIME_ENV } = require('../config');
 const { validator } = require('../utils/validator');
 const { Logger } = require('../utils/logger');
 const { UIHelper } = require('../utils/ui-helper');
@@ -124,6 +124,34 @@ class ProviderEditor extends BaseCommand {
                 checked: providerToEdit.launchArgs && providerToEdit.launchArgs.includes(arg.name),
               })),
           },
+          {
+            type: 'input',
+            name: 'autoCompactWindow',
+            message: '上下文窗口 token 容量 (CLAUDE_CODE_AUTO_COMPACT_WINDOW):',
+            default: providerToEdit.runtimeEnv?.autoCompactWindow || DEFAULT_RUNTIME_ENV.autoCompactWindow,
+            validate: (input) => validator.validatePositiveInteger(input, '上下文窗口 token 容量') || true,
+          },
+          {
+            type: 'input',
+            name: 'autoCompactPctOverride',
+            message: '自动压缩触发百分比 (CLAUDE_AUTOCOMPACT_PCT_OVERRIDE):',
+            default: providerToEdit.runtimeEnv?.autoCompactPctOverride || DEFAULT_RUNTIME_ENV.autoCompactPctOverride,
+            validate: (input) => validator.validatePercent(input, '自动压缩触发百分比') || true,
+          },
+          {
+            type: 'input',
+            name: 'bashMaxOutputLength',
+            message: 'Bash 最大输出长度 (BASH_MAX_OUTPUT_LENGTH):',
+            default: providerToEdit.runtimeEnv?.bashMaxOutputLength || DEFAULT_RUNTIME_ENV.bashMaxOutputLength,
+            validate: (input) => validator.validatePositiveInteger(input, 'Bash 最大输出长度') || true,
+          },
+          {
+            type: 'input',
+            name: 'taskMaxOutputLength',
+            message: 'Task 最大输出长度 (TASK_MAX_OUTPUT_LENGTH):',
+            default: providerToEdit.runtimeEnv?.taskMaxOutputLength || DEFAULT_RUNTIME_ENV.taskMaxOutputLength,
+            validate: (input) => validator.validatePositiveInteger(input, 'Task 最大输出长度') || true,
+          },
         ]);
       } catch (error) {
         this.removeESCListener(escListener);
@@ -154,6 +182,12 @@ class ProviderEditor extends BaseCommand {
         authToken: answers.authToken,
         authMode: answers.authMode,
         launchArgs: answers.launchArgs,
+        runtimeEnv: {
+          autoCompactWindow: Number(answers.autoCompactWindow),
+          autoCompactPctOverride: Number(answers.autoCompactPctOverride),
+          bashMaxOutputLength: Number(answers.bashMaxOutputLength),
+          taskMaxOutputLength: Number(answers.taskMaxOutputLength),
+        },
         // Retain original model settings unless we add editing for them
         opusModel: this.configManager.getProvider(name).models?.opus,
         sonnetModel: this.configManager.getProvider(name).models?.sonnet,

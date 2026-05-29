@@ -1,6 +1,6 @@
 const path = require('path');
 const chalk = require('chalk');
-const { ConfigManager } = require('../config');
+const { ConfigManager, DEFAULT_RUNTIME_ENV } = require('../config');
 const { Logger } = require('../utils/logger');
 const { UIHelper } = require('../utils/ui-helper');
 const { findSettingsConflict, backupSettingsFile, clearConflictKeys, saveSettingsFile } = require('../utils/claude-settings');
@@ -1231,7 +1231,7 @@ class EnvSwitcher extends BaseCommand {
     let escListener;
     try {
       await this.configManager.load();
-      const provider = this.configManager.getProvider(providerName);
+      let provider = this.configManager.getProvider(providerName);
       this.clearScreen();
 
       if (!provider) {
@@ -1341,6 +1341,54 @@ class EnvSwitcher extends BaseCommand {
               if (error) return error;
               return true;
             }
+          },
+          {
+            type: 'input',
+            name: 'autoCompactWindow',
+            message: '上下文窗口 token 容量 (CLAUDE_CODE_AUTO_COMPACT_WINDOW):',
+            default: provider.runtimeEnv?.autoCompactWindow || DEFAULT_RUNTIME_ENV.autoCompactWindow,
+            prefillDefault: true,
+            validate: (input) => {
+              const error = validator.validatePositiveInteger(input, '上下文窗口 token 容量');
+              if (error) return error;
+              return true;
+            }
+          },
+          {
+            type: 'input',
+            name: 'autoCompactPctOverride',
+            message: '自动压缩触发百分比 (CLAUDE_AUTOCOMPACT_PCT_OVERRIDE):',
+            default: provider.runtimeEnv?.autoCompactPctOverride || DEFAULT_RUNTIME_ENV.autoCompactPctOverride,
+            prefillDefault: true,
+            validate: (input) => {
+              const error = validator.validatePercent(input, '自动压缩触发百分比');
+              if (error) return error;
+              return true;
+            }
+          },
+          {
+            type: 'input',
+            name: 'bashMaxOutputLength',
+            message: 'Bash 最大输出长度 (BASH_MAX_OUTPUT_LENGTH):',
+            default: provider.runtimeEnv?.bashMaxOutputLength || DEFAULT_RUNTIME_ENV.bashMaxOutputLength,
+            prefillDefault: true,
+            validate: (input) => {
+              const error = validator.validatePositiveInteger(input, 'Bash 最大输出长度');
+              if (error) return error;
+              return true;
+            }
+          },
+          {
+            type: 'input',
+            name: 'taskMaxOutputLength',
+            message: 'Task 最大输出长度 (TASK_MAX_OUTPUT_LENGTH):',
+            default: provider.runtimeEnv?.taskMaxOutputLength || DEFAULT_RUNTIME_ENV.taskMaxOutputLength,
+            prefillDefault: true,
+            validate: (input) => {
+              const error = validator.validatePositiveInteger(input, 'Task 最大输出长度');
+              if (error) return error;
+              return true;
+            }
           }
         ]);
       } catch (error) {
@@ -1392,6 +1440,12 @@ class EnvSwitcher extends BaseCommand {
       provider.models.opus = answers.opusModel || null;
       provider.models.sonnet = answers.sonnetModel || null;
       provider.models.haiku = answers.haikuModel || null;
+      provider.runtimeEnv = {
+        autoCompactWindow: Number(answers.autoCompactWindow),
+        autoCompactPctOverride: Number(answers.autoCompactPctOverride),
+        bashMaxOutputLength: Number(answers.bashMaxOutputLength),
+        taskMaxOutputLength: Number(answers.taskMaxOutputLength)
+      };
 
       await this.configManager.save();
       Logger.success(`供应商 '${newName}' 已更新`);

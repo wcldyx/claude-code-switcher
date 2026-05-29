@@ -33,6 +33,29 @@ describe('env-launcher', () => {
       expect(env.ANTHROPIC_DEFAULT_HAIKU_MODEL).toBe('claude-haiku-custom');
       expect(env.ANTHROPIC_MODEL).toBeUndefined();
       expect(env.ANTHROPIC_SMALL_FAST_MODEL).toBeUndefined();
+      expect(env.CLAUDE_CODE_AUTO_COMPACT_WINDOW).toBe('258000');
+      expect(env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE).toBe('70');
+      expect(env.BASH_MAX_OUTPUT_LENGTH).toBe('12000');
+      expect(env.TASK_MAX_OUTPUT_LENGTH).toBe('16000');
+    });
+
+    test('should set configured runtime environment variables', () => {
+      const env = buildEnvVariables({
+        authMode: 'oauth_token',
+        authToken: 'sk-ant-oat01-test-token',
+        runtimeEnv: {
+          autoCompactWindow: 24000,
+          autoCompactPctOverride: 60,
+          bashMaxOutputLength: 8000,
+          taskMaxOutputLength: 10000
+        }
+      });
+
+      expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBe('sk-ant-oat01-test-token');
+      expect(env.CLAUDE_CODE_AUTO_COMPACT_WINDOW).toBe('24000');
+      expect(env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE).toBe('60');
+      expect(env.BASH_MAX_OUTPUT_LENGTH).toBe('8000');
+      expect(env.TASK_MAX_OUTPUT_LENGTH).toBe('10000');
     });
   });
 

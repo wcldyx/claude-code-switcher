@@ -145,6 +145,39 @@ describe('ConfigManager', () => {
         sonnet: null,
         haiku: null
       });
+      expect(config.providers.test.runtimeEnv).toEqual({
+        autoCompactWindow: 258000,
+        autoCompactPctOverride: 70,
+        bashMaxOutputLength: 12000,
+        taskMaxOutputLength: 16000
+      });
+    });
+
+    test('should migrate missing runtime env settings to defaults', async () => {
+      const fs = require('fs-extra');
+      await fs.writeJSON(testConfigPath, {
+        version: '1.0.0',
+        currentProvider: 'test',
+        providers: {
+          test: {
+            name: 'test',
+            displayName: 'Test Provider'
+          }
+        }
+      });
+
+      configManager.isLoaded = false;
+      configManager.config = null;
+      configManager.lastModified = null;
+      configManager.loadPromise = null;
+
+      const config = await configManager.load(true);
+      expect(config.providers.test.runtimeEnv).toEqual({
+        autoCompactWindow: 258000,
+        autoCompactPctOverride: 70,
+        bashMaxOutputLength: 12000,
+        taskMaxOutputLength: 16000
+      });
     });
 
     test('should store default model aliases', async () => {

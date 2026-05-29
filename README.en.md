@@ -137,6 +137,19 @@ models.smallFast -> models.haiku
 
 The tool no longer sets the legacy `ANTHROPIC_MODEL` or `ANTHROPIC_SMALL_FAST_MODEL` variables.
 
+## Runtime Context Configuration
+
+The tool sets Claude Code runtime environment variables. The default context window is 258k tokens:
+
+```text
+CLAUDE_CODE_AUTO_COMPACT_WINDOW=258000
+CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=70
+BASH_MAX_OUTPUT_LENGTH=12000
+TASK_MAX_OUTPUT_LENGTH=16000
+```
+
+These values are stored in each provider's `runtimeEnv` config and can be changed by editing the provider.
+
 ## Connection Checks
 
 Provider status checks send a small test request. Model selection follows "read user configuration first, then prefer the cheapest model":
@@ -235,6 +248,10 @@ CLAUDE_CODE_OAUTH_TOKEN
 ANTHROPIC_DEFAULT_OPUS_MODEL
 ANTHROPIC_DEFAULT_SONNET_MODEL
 ANTHROPIC_DEFAULT_HAIKU_MODEL
+CLAUDE_CODE_AUTO_COMPACT_WINDOW
+CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
+BASH_MAX_OUTPUT_LENGTH
+TASK_MAX_OUTPUT_LENGTH
 ```
 
 Backup files are named:

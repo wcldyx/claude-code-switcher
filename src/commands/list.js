@@ -44,6 +44,11 @@ class ProviderLister {
           console.log(chalk.gray(`   Sonnet 模型: ${provider.models.sonnet || '未设置'}`));
           console.log(chalk.gray(`   Haiku 模型: ${provider.models.haiku || '未设置'}`));
         }
+        if (provider.runtimeEnv) {
+          console.log(chalk.gray(`   上下文窗口: ${provider.runtimeEnv.autoCompactWindow} tokens`));
+          console.log(chalk.gray(`   自动压缩: ${provider.runtimeEnv.autoCompactPctOverride}%`));
+          console.log(chalk.gray(`   输出限制: Bash ${provider.runtimeEnv.bashMaxOutputLength}, Task ${provider.runtimeEnv.taskMaxOutputLength}`));
+        }
         console.log(chalk.gray(`   创建时间: ${new Date(provider.createdAt).toLocaleString()}`));
         console.log(chalk.gray(`   最后使用: ${new Date(provider.lastUsed).toLocaleString()}`));
         

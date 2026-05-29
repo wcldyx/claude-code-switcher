@@ -3,6 +3,7 @@ const { execFileSync, spawnSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { DEFAULT_RUNTIME_ENV } = require("../config");
 
 const CLAUDE_PATH_CACHE = path.join(os.homedir(), ".cc-claude-path-cache.json");
 const CLAUDE_PATH_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -53,6 +54,16 @@ function buildEnvVariables(config) {
   if (config.models && config.models.haiku) {
     env.ANTHROPIC_DEFAULT_HAIKU_MODEL = config.models.haiku;
   }
+
+  const runtimeEnv = {
+    ...DEFAULT_RUNTIME_ENV,
+    ...(config.runtimeEnv || {})
+  };
+
+  env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = String(runtimeEnv.autoCompactWindow);
+  env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = String(runtimeEnv.autoCompactPctOverride);
+  env.BASH_MAX_OUTPUT_LENGTH = String(runtimeEnv.bashMaxOutputLength);
+  env.TASK_MAX_OUTPUT_LENGTH = String(runtimeEnv.taskMaxOutputLength);
 
   return env;
 }

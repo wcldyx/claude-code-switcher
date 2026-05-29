@@ -59,6 +59,12 @@ class CurrentConfig {
       if (currentProvider.models?.haiku) {
         console.log(chalk.gray(`set ANTHROPIC_DEFAULT_HAIKU_MODEL=${currentProvider.models.haiku}`));
       }
+      if (currentProvider.runtimeEnv) {
+        console.log(chalk.gray(`set CLAUDE_CODE_AUTO_COMPACT_WINDOW=${currentProvider.runtimeEnv.autoCompactWindow}`));
+        console.log(chalk.gray(`set CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=${currentProvider.runtimeEnv.autoCompactPctOverride}`));
+        console.log(chalk.gray(`set BASH_MAX_OUTPUT_LENGTH=${currentProvider.runtimeEnv.bashMaxOutputLength}`));
+        console.log(chalk.gray(`set TASK_MAX_OUTPUT_LENGTH=${currentProvider.runtimeEnv.taskMaxOutputLength}`));
+      }
       console.log(chalk.gray('claude'));
       
     } catch (error) {

@@ -3,6 +3,13 @@ const path = require('path');
 const os = require('os');
 const chalk = require('chalk');
 
+const DEFAULT_RUNTIME_ENV = {
+  autoCompactWindow: 258000,
+  autoCompactPctOverride: 70,
+  bashMaxOutputLength: 12000,
+  taskMaxOutputLength: 16000
+};
+
 async function pathExists(filePath) {
   try {
     await fs.access(filePath);
@@ -89,7 +96,8 @@ class ConfigManager {
         const authModesMigrated = this._migrateAuthModes();
         const launchArgsMigrated = this._migrateLaunchArgs();
         const modelsMigrated = this._migrateModelConfig();
-        const migrated = preferencesMigrated || authModesMigrated || launchArgsMigrated || modelsMigrated;
+        const runtimeEnvMigrated = this._migrateRuntimeEnvConfig();
+        const migrated = preferencesMigrated || authModesMigrated || launchArgsMigrated || modelsMigrated || runtimeEnvMigrated;
         if (migrated) {
           await this._performSave();
         }
@@ -202,6 +210,43 @@ class ConfigManager {
     return migrated;
   }
 
+  _normalizeRuntimeEnv(runtimeEnv) {
+    const normalized = { ...DEFAULT_RUNTIME_ENV };
+    if (!runtimeEnv || typeof runtimeEnv !== 'object' || Array.isArray(runtimeEnv)) {
+      return normalized;
+    }
+
+    Object.keys(DEFAULT_RUNTIME_ENV).forEach(key => {
+      const value = Number(runtimeEnv[key]);
+      if (Number.isFinite(value) && value > 0) {
+        if (key === 'autoCompactPctOverride') {
+          normalized[key] = Math.min(Math.floor(value), 100);
+        } else {
+          normalized[key] = Math.floor(value);
+        }
+      }
+    });
+
+    return normalized;
+  }
+
+  _migrateRuntimeEnvConfig() {
+    let migrated = false;
+
+    if (this.config.providers) {
+      Object.keys(this.config.providers).forEach(key => {
+        const provider = this.config.providers[key];
+        const normalized = this._normalizeRuntimeEnv(provider.runtimeEnv);
+        if (JSON.stringify(provider.runtimeEnv) !== JSON.stringify(normalized)) {
+          provider.runtimeEnv = normalized;
+          migrated = true;
+        }
+      });
+    }
+
+    return migrated;
+  }
+
   async checkIfModified() {
     try {
       if (!this.lastModified || !await pathExists(this.configPath)) {
@@ -253,6 +298,7 @@ class ConfigManager {
       authToken: providerConfig.authToken,
       authMode: providerConfig.authMode || 'api_key',
       launchArgs: providerConfig.launchArgs || [],
+      runtimeEnv: this._normalizeRuntimeEnv(providerConfig.runtimeEnv),
       models: {
         opus: providerConfig.opusModel || null,
         sonnet: providerConfig.sonnetModel || null,
@@ -364,4 +410,4 @@ class ConfigManager {
   }
 }
 
-module.exports = { ConfigManager };
+module.exports = { ConfigManager, DEFAULT_RUNTIME_ENV };

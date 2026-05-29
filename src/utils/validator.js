@@ -83,6 +83,33 @@ const validator = {
     return null;
   },
 
+  validatePositiveInteger(value, label = '数值') {
+    if (value === null || value === undefined || value === '') {
+      return `${label}不能为空`;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      return `${label}必须是正整数`;
+    }
+
+    return null;
+  },
+
+  validatePercent(value, label = '百分比') {
+    const positiveIntegerError = this.validatePositiveInteger(value, label);
+    if (positiveIntegerError) {
+      return positiveIntegerError;
+    }
+
+    const parsed = Number(value);
+    if (parsed > 100) {
+      return `${label}不能超过100`;
+    }
+
+    return null;
+  },
+
   validateLaunchArgs(args) {
     if (!Array.isArray(args)) {
       return '启动参数必须是数组';
